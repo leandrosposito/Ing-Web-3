@@ -73,19 +73,32 @@ Reglas de los estados:
 
 ---
 
-## APIs (propuesta inicial)
+## APIs
 
-> Borrador para arrancar. Lo vamos ajustando cuando empecemos con el backend. La documentación "oficial" va a estar en **Swagger / OpenAPI**.
+> La documentación completa (bodies, respuestas y códigos de error de cada endpoint) está en **Swagger UI**: `http://localhost:8080/swagger-ui.html` con la app levantada, o en [`docs/openapi.json`](docs/openapi.json).
 
 | # | Método | Endpoint | Quién lo usa | Qué hace | Estado resultante |
 |---|---|---|---|---|---|
 | 1 | `POST` | `/api/v1/ordenes` | SAP | Recibe la orden con camión, chofer, cliente, producto, fecha prevista y preset. Sincroniza las entidades por código externo. | 1 |
 | 2 | `POST` | `/api/v1/ordenes/{numeroOrden}/pesaje-inicial` | TMS | Registra la tara y genera la contraseña de activación (5 dígitos). | 2 |
 | 3.1 | `POST` | `/api/v1/ordenes/{numeroOrden}/habilitar-carga` | Sistema de carga | Valida orden + estado + password y devuelve el preset. | 2 |
-| 3.3 | `POST` | `/api/v1/ordenes/{numeroOrden}/detalle` | Sistema de carga | Recibe masa acumulada, densidad, temperatura y caudal en tiempo real. | 2 |
+| 3.3 | `POST` | `/api/v1/ordenes/{numeroOrden}/detalle` | Sistema de carga | Recibe masa acumulada, densidad, temperatura y caudal en tiempo real. Responde si el dato fue aceptado, almacenado o descartado (y por qué). | 2 |
 | 4 | `POST` | `/api/v1/ordenes/{numeroOrden}/cierre` | Sistema de carga | Cierra la orden y bloquea nuevos datos de detalle. | 3 |
 | 5 | `POST` | `/api/v1/ordenes/{numeroOrden}/pesaje-final` | TMS | Registra el pesaje final y devuelve la conciliación. | 4 |
 | — | `GET` | `/api/v1/ordenes/{numeroOrden}/conciliacion` | Cualquier cliente | Devuelve la conciliación. Solo para órdenes en estado 4. | — |
+| — | `GET` | `/api/v1/ordenes?estado=` | Consulta | Lista órdenes (filtro opcional por estado). | — |
+| — | `GET` | `/api/v1/ordenes/{numeroOrden}` | Consulta | Orden completa con la cabecera de últimos valores (no expone la password). | — |
+| — | `GET` | `/api/v1/ordenes/{numeroOrden}/historial-estados` | Consulta | Log de auditoría de estados. | — |
+| — | `GET` | `/api/v1/ordenes/{numeroOrden}/detalle` | Consulta | Detalle de carga almacenado. | — |
+
+Códigos de error (todos con el mismo formato JSON: `timestamp`, `status`, `error`, `mensaje`, `path`, `detalles`):
+
+| Código | Cuándo |
+|---|---|
+| `400` | Faltan datos o tienen formato inválido (Bean Validation). |
+| `401` | Contraseña de activación incorrecta. |
+| `404` | La orden no existe. |
+| `409` | La operación no corresponde al estado actual de la orden, o el número de orden ya existe. |
 
 ---
 
@@ -101,6 +114,7 @@ Reglas de los estados:
 - Se **descartan** los registros con:
   - Caudal ≤ 0
   - Masa acumulada ≤ 0, o menor que el valor anterior
+  - Densidad fuera de (0, 1] _(interpretación nuestra, ver [decisiones](docs/decisiones.md))_
 - En la cabecera de la orden se guarda siempre el **último valor válido** (masa, densidad, temperatura, caudal y timestamp).
 - El detalle histórico se almacena según una **frecuencia configurable**, que puede ser distinta a la de recepción.
   _Ejemplo: si llegan datos cada 1 s y se guarda cada 10 s, en un minuto llegan 60 registros y se guardan 6._
@@ -139,12 +153,12 @@ El modelo es extensible: se pueden agregar propiedades según lo que vaya necesi
 
 ### Segundo parcial — primera entrega: **10/11/2026**
 
-- [ ] APIs de los puntos 1 a 5 (sin interfaz gráfica)
-- [ ] Documentación con OpenAPI (Swagger)
-- [ ] Colección de Postman para probar todas las APIs
-- [ ] _(Opcional)_ Tests de Postman que simulen el circuito completo de una orden
-- [ ] _(Opcional)_ Frecuencia de almacenamiento de detalle configurable
-- [ ] _(Opcional)_ Cálculo de promedios de temperatura, densidad y caudal
+- [x] APIs de los puntos 1 a 5 (sin interfaz gráfica)
+- [x] Documentación con OpenAPI (Swagger)
+- [x] Colección de Postman para probar todas las APIs
+- [x] _(Opcional)_ Tests de Postman que simulen el circuito completo de una orden
+- [x] _(Opcional)_ Frecuencia de almacenamiento de detalle configurable
+- [x] _(Opcional)_ Cálculo de promedios de temperatura, densidad y caudal
 
 ### Examen final
 
@@ -168,25 +182,72 @@ El modelo es extensible: se pueden agregar propiedades según lo que vaya necesi
 
 | Capa | Tecnología |
 |---|---|
-| Backend | _a definir_ |
-| Base de datos | _a definir_ |
+| Backend | Java 21 + Spring Boot 4.1 (Spring Web MVC, Spring Data JPA / Hibernate, Bean Validation) |
+| Base de datos | MySQL 8 (H2 en memoria para pruebas rápidas y tests) |
 | Frontend | Vue o React _(a definir)_ |
-| Documentación de API | OpenAPI / Swagger |
+| Documentación de API | OpenAPI / Swagger (springdoc-openapi) |
 | Pruebas de API | Postman |
 | Despliegue | _a definir_ |
 
-## Estructura del repositorio (propuesta)
+## Estructura del repositorio
 
 ```
-├── backend/     # API y lógica de negocio
+├── backend/     # API y lógica de negocio (Spring Boot)
 ├── frontend/    # Interfaz web (para el final)
-├── postman/     # Colección y environments de Postman
-└── docs/        # Diagramas, decisiones de diseño, etc.
+├── postman/     # Colección de Postman con tests del circuito completo
+└── docs/        # Enunciado, especificación OpenAPI y decisiones de diseño
 ```
+
+Paquetes del backend (`backend/src/main/java/ar/edu/iua/iw3`), organizados por capa:
+
+| Paquete | Qué tiene |
+|---|---|
+| `controller` | Un controller por sistema que consume la API (SAP, TMS, sistema de carga) + consultas. Solo reciben HTTP y delegan. |
+| `service` | Reglas de negocio: transiciones de estado + auditoría, sincronización de maestros, reglas de descarte, conciliación. |
+| `repository` | Interfaces Spring Data JPA. |
+| `model` | Entidades JPA y la máquina de estados (`EstadoOrden`). |
+| `dto` / `mapper` | Contrato de entrada/salida de la API y conversión desde las entidades. |
+| `exception` | Excepciones de negocio y `GlobalExceptionHandler` (las traduce a 400/401/404/409). |
+
+Las decisiones de diseño y cómo interpretamos las partes ambiguas del enunciado están en [`docs/decisiones.md`](docs/decisiones.md).
 
 ## Cómo levantar el proyecto
 
-_Pendiente: lo completamos cuando definamos el stack._
+**Requisitos:** JDK 21. Maven no hace falta: el proyecto trae Maven Wrapper (`mvnw`).
+
+### Opción rápida (sin instalar MySQL)
+
+Base H2 en memoria; los datos se pierden al apagar.
+
+```bash
+cd backend
+./mvnw spring-boot:run -Dspring-boot.run.profiles=h2      # Windows: mvnw.cmd ...
+```
+
+### Con MySQL
+
+1. Tener MySQL 8 corriendo. El schema `iw3` se crea solo la primera vez.
+2. Copiar `backend/.env.example` a `backend/.env` y completar el usuario y la contraseña. **El `.env` no se sube al repo.** También se pueden usar variables de entorno con los mismos nombres.
+3. Levantar:
+
+   ```bash
+   cd backend
+   ./mvnw spring-boot:run
+   ```
+
+### Configuración
+
+| Variable | Default | Para qué |
+|---|---|---|
+| `DB_URL` | `jdbc:mysql://localhost:3306/iw3?...` | URL de la base |
+| `DB_USER` / `DB_PASSWORD` | `root` / _(vacío)_ | Credenciales |
+| `FRECUENCIA_DETALLE_SEGUNDOS` | `0` | Cada cuántos segundos se guarda un registro de detalle (`0` = todos) |
+
+### Probar
+
+- **Swagger UI:** http://localhost:8080/swagger-ui.html
+- **Postman:** importar `postman/IW3-ordenes-de-carga.postman_collection.json` y correrla con el **Collection Runner** (los requests van encadenados: cada uno guarda variables que usa el siguiente). Desde consola: `npx newman run postman/IW3-ordenes-de-carga.postman_collection.json`
+- **Tests automáticos:** `cd backend && ./mvnw test` (tests unitarios de la máquina de estados y de las reglas de descarte, más un test de integración del circuito completo).
 
 ---
 
