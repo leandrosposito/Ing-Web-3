@@ -1,0 +1,15 @@
+# Credenciales: nunca al repo
+.env
+*.env
+!.env.example
+
+# IDEs y SO
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Build
+target/
+node_modules/
