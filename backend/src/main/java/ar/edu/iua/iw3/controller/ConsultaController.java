@@ -1,9 +1,11 @@
 package ar.edu.iua.iw3.controller;
 
 import ar.edu.iua.iw3.dto.CambioEstadoResponse;
+import ar.edu.iua.iw3.dto.DetalleCargaResponse;
 import ar.edu.iua.iw3.dto.ErrorResponse;
 import ar.edu.iua.iw3.dto.OrdenResponse;
 import ar.edu.iua.iw3.model.EstadoOrden;
+import ar.edu.iua.iw3.service.CargaService;
 import ar.edu.iua.iw3.service.OrdenService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -24,6 +26,7 @@ import java.util.List;
 public class ConsultaController {
 
     private final OrdenService ordenService;
+    private final CargaService cargaService;
 
     @GetMapping
     @Operation(summary = "Listar ordenes", description = "Opcionalmente filtradas por estado.")
@@ -48,5 +51,14 @@ public class ConsultaController {
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     public List<CambioEstadoResponse> historial(@PathVariable Long numeroOrden) {
         return ordenService.historialEstados(numeroOrden);
+    }
+
+    @GetMapping("/{numeroOrden}/detalle")
+    @Operation(summary = "Detalle de carga almacenado", description = "Registros historicos guardados segun la frecuencia configurada.")
+    @ApiResponse(responseCode = "200", description = "OK")
+    @ApiResponse(responseCode = "404", description = "La orden no existe",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    public List<DetalleCargaResponse> detalle(@PathVariable Long numeroOrden) {
+        return cargaService.listarDetalle(numeroOrden);
     }
 }
