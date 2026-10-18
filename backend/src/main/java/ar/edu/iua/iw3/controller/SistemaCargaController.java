@@ -2,6 +2,7 @@ package ar.edu.iua.iw3.controller;
 
 import ar.edu.iua.iw3.dto.*;
 import ar.edu.iua.iw3.service.CargaService;
+import ar.edu.iua.iw3.service.OrdenService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 public class SistemaCargaController {
 
     private final CargaService cargaService;
+    private final OrdenService ordenService;
 
     @PostMapping("/{numeroOrden}/habilitar-carga")
     @Operation(summary = "Punto 3.1 - Habilitar carga (password -> preset)",
@@ -52,5 +54,19 @@ public class SistemaCargaController {
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     public DetalleCargaResultado detalle(@PathVariable Long numeroOrden, @Valid @RequestBody DetalleCargaRequest request) {
         return cargaService.recibirDetalle(numeroOrden, request);
+    }
+
+    @PostMapping("/{numeroOrden}/cierre")
+    @Operation(summary = "Punto 4 - Cerrar la orden",
+            description = "Pasa la orden a estado 3: Cerrada para carga. A partir de aca se rechazan nuevos datos de "
+                    + "detalle. El body es opcional (observaciones para la auditoria). Solo para ordenes en estado 2.")
+    @ApiResponse(responseCode = "200", description = "Orden cerrada")
+    @ApiResponse(responseCode = "404", description = "La orden no existe",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "409", description = "La orden no esta en estado 2",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    public OrdenResponse cerrar(@PathVariable Long numeroOrden,
+                                @Valid @RequestBody(required = false) CierreRequest request) {
+        return ordenService.cerrar(numeroOrden, request);
     }
 }

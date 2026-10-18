@@ -9,6 +9,7 @@ import ar.edu.iua.iw3.model.CambioEstado;
 import ar.edu.iua.iw3.model.EstadoOrden;
 import ar.edu.iua.iw3.model.Orden;
 import ar.edu.iua.iw3.repository.CambioEstadoRepository;
+import ar.edu.iua.iw3.repository.DetalleCargaRepository;
 import ar.edu.iua.iw3.repository.OrdenRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -33,6 +34,7 @@ public class OrdenService {
 
     private final OrdenRepository ordenRepository;
     private final CambioEstadoRepository cambioEstadoRepository;
+    private final DetalleCargaRepository detalleCargaRepository;
     private final SincronizacionService sincronizacionService;
     private final SecureRandom random = new SecureRandom();
 
@@ -86,6 +88,58 @@ public class OrdenService {
     /** Entero aleatorio de 5 digitos (10000 a 99999). SecureRandom porque es una credencial. */
     private Integer generarPassword() {
         return 10000 + random.nextInt(90000);
+    }
+
+    // ------------------------------------------------------------------ Punto 4
+
+    /** Cierra la orden (estado 3): a partir de aca se rechazan nuevos datos de carga. */
+    @Transactional
+    public OrdenResponse cerrar(Long numeroOrden, CierreRequest req) {
+        Orden orden = obtenerParaActualizar(numeroOrden);
+        String observaciones = (req == null) ? null : req.observaciones();
+        cambiarEstado(orden, EstadoOrden.CERRADA_PARA_CARGA, PROCESO_SISTEMA_CARGA, observaciones);
+        return OrdenMapper.toResponse(orden);
+    }
+
+    // ------------------------------------------------------------------ Punto 5
+
+    /** Registra el pesaje final, pasa la orden a estado 4 y devuelve la conciliacion. */
+    @Transactional
+    public ConciliacionResponse registrarPesajeFinal(Long numeroOrden, PesajeRequest req) {
+        Orden orden = obtenerParaActualizar(numeroOrden);
+        cambiarEstado(orden, EstadoOrden.FINALIZADA, PROCESO_TMS, req.observaciones());
+        orden.setPesajeFinal(req.pesaje());
+        orden.setFechaPesajeFinal(LocalDateTime.now());
+        return calcularConciliacion(orden);
+    }
+
+    /** La conciliacion se puede pedir en cualquier momento, pero solo para ordenes finalizadas. */
+    @Transactional(readOnly = true)
+    public ConciliacionResponse obtenerConciliacion(Long numeroOrden) {
+        Orden orden = obtener(numeroOrden);
+        orden.verificarEstado(EstadoOrden.FINALIZADA);
+        return calcularConciliacion(orden);
+    }
+
+    /**
+     * No se guarda: se calcula a partir de datos que ya estan en la base, asi nunca queda desactualizada.
+     * Producto cargado = ultima masa acumulada (0 si nunca llego un dato valido).
+     */
+    private ConciliacionResponse calcularConciliacion(Orden orden) {
+        double productoCargado = orden.getUltimaMasaAcumulada() == null ? 0.0 : orden.getUltimaMasaAcumulada();
+        double netoPorBalanza = orden.getPesajeFinal() - orden.getPesajeInicial();
+        PromediosCarga promedios = detalleCargaRepository.calcularPromedios(orden);
+
+        return new ConciliacionResponse(
+                orden.getNumeroOrden(),
+                orden.getPesajeInicial(),
+                orden.getPesajeFinal(),
+                productoCargado,
+                netoPorBalanza,
+                netoPorBalanza - productoCargado,
+                promedios.temperatura(),
+                promedios.densidad(),
+                promedios.caudal());
     }
 
     // ------------------------------------------------------------------ Consultas

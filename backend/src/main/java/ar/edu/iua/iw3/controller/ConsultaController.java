@@ -1,6 +1,7 @@
 package ar.edu.iua.iw3.controller;
 
 import ar.edu.iua.iw3.dto.CambioEstadoResponse;
+import ar.edu.iua.iw3.dto.ConciliacionResponse;
 import ar.edu.iua.iw3.dto.DetalleCargaResponse;
 import ar.edu.iua.iw3.dto.ErrorResponse;
 import ar.edu.iua.iw3.dto.OrdenResponse;
@@ -51,6 +52,17 @@ public class ConsultaController {
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     public List<CambioEstadoResponse> historial(@PathVariable Long numeroOrden) {
         return ordenService.historialEstados(numeroOrden);
+    }
+
+    @GetMapping("/{numeroOrden}/conciliacion")
+    @Operation(summary = "Punto 5 - Consultar conciliacion", description = "Solo disponible para ordenes en estado 4: Finalizada.")
+    @ApiResponse(responseCode = "200", description = "OK")
+    @ApiResponse(responseCode = "404", description = "La orden no existe",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "409", description = "La orden todavia no esta finalizada",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    public ConciliacionResponse conciliacion(@PathVariable Long numeroOrden) {
+        return ordenService.obtenerConciliacion(numeroOrden);
     }
 
     @GetMapping("/{numeroOrden}/detalle")

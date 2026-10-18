@@ -1,5 +1,6 @@
 package ar.edu.iua.iw3.controller;
 
+import ar.edu.iua.iw3.dto.ConciliacionResponse;
 import ar.edu.iua.iw3.dto.ErrorResponse;
 import ar.edu.iua.iw3.dto.PesajeInicialResponse;
 import ar.edu.iua.iw3.dto.PesajeRequest;
@@ -35,5 +36,20 @@ public class TmsController {
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     public PesajeInicialResponse pesajeInicial(@PathVariable Long numeroOrden, @Valid @RequestBody PesajeRequest request) {
         return ordenService.registrarPesajeInicial(numeroOrden, request);
+    }
+
+    @PostMapping("/{numeroOrden}/pesaje-final")
+    @Operation(summary = "Punto 5 - Registrar pesaje final y obtener la conciliacion",
+            description = "Registra el peso del camion cargado, pasa la orden a estado 4: Finalizada y devuelve la "
+                    + "conciliacion. Solo para ordenes en estado 3.")
+    @ApiResponse(responseCode = "200", description = "Pesaje registrado; se devuelve la conciliacion")
+    @ApiResponse(responseCode = "400", description = "Datos invalidos",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "La orden no existe",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "409", description = "La orden no esta en estado 3",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    public ConciliacionResponse pesajeFinal(@PathVariable Long numeroOrden, @Valid @RequestBody PesajeRequest request) {
+        return ordenService.registrarPesajeFinal(numeroOrden, request);
     }
 }
