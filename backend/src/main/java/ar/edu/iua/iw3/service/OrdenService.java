@@ -1,8 +1,6 @@
 package ar.edu.iua.iw3.service;
 
-import ar.edu.iua.iw3.dto.CambioEstadoResponse;
-import ar.edu.iua.iw3.dto.OrdenResponse;
-import ar.edu.iua.iw3.dto.OrdenSapRequest;
+import ar.edu.iua.iw3.dto.*;
 import ar.edu.iua.iw3.exception.ConflictoException;
 import ar.edu.iua.iw3.exception.EstadoInvalidoException;
 import ar.edu.iua.iw3.exception.RecursoNoEncontradoException;
@@ -16,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -35,6 +34,7 @@ public class OrdenService {
     private final OrdenRepository ordenRepository;
     private final CambioEstadoRepository cambioEstadoRepository;
     private final SincronizacionService sincronizacionService;
+    private final SecureRandom random = new SecureRandom();
 
     // ------------------------------------------------------------------ Punto 1
 
@@ -65,6 +65,27 @@ public class OrdenService {
                 PROCESO_SAP, "Orden recibida desde SAP"));
 
         return OrdenMapper.toResponse(orden);
+    }
+
+    // ------------------------------------------------------------------ Punto 2
+
+    /** Registra la tara, genera la contrasena de activacion y pasa la orden a estado 2. */
+    @Transactional
+    public PesajeInicialResponse registrarPesajeInicial(Long numeroOrden, PesajeRequest req) {
+        Orden orden = obtenerParaActualizar(numeroOrden);
+        cambiarEstado(orden, EstadoOrden.CON_PESAJE_INICIAL, PROCESO_TMS, req.observaciones());
+
+        orden.setPesajeInicial(req.pesaje());
+        orden.setFechaPesajeInicial(LocalDateTime.now());
+        orden.setPassword(generarPassword());
+
+        return new PesajeInicialResponse(orden.getNumeroOrden(), orden.getEstado(), orden.getPesajeInicial(),
+                orden.getFechaPesajeInicial(), orden.getPassword());
+    }
+
+    /** Entero aleatorio de 5 digitos (10000 a 99999). SecureRandom porque es una credencial. */
+    private Integer generarPassword() {
+        return 10000 + random.nextInt(90000);
     }
 
     // ------------------------------------------------------------------ Consultas
