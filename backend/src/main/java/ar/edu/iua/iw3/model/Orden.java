@@ -1,5 +1,6 @@
 package ar.edu.iua.iw3.model;
 
+import ar.edu.iua.iw3.exception.EstadoInvalidoException;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -76,4 +77,13 @@ public class Orden {
     // ---- Punto 5: pesaje final ----
     private Double pesajeFinal;
     private LocalDateTime fechaPesajeFinal;
+
+    /** Para operaciones que no cambian el estado pero solo se permiten en uno (ej: recibir detalle solo en estado 2). */
+    public void verificarEstado(EstadoOrden esperado) {
+        if (estado != esperado) {
+            throw new EstadoInvalidoException("La orden %d esta en estado %d (%s); esta operacion requiere estado %d (%s)"
+                    .formatted(numeroOrden, estado.getNumero(), estado.getDescripcion(),
+                            esperado.getNumero(), esperado.getDescripcion()));
+        }
+    }
 }
