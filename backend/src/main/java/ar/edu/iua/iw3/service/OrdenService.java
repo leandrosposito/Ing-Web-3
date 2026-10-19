@@ -11,6 +11,7 @@ import ar.edu.iua.iw3.model.Orden;
 import ar.edu.iua.iw3.repository.CambioEstadoRepository;
 import ar.edu.iua.iw3.repository.DetalleCargaRepository;
 import ar.edu.iua.iw3.repository.OrdenRepository;
+import ar.edu.iua.iw3.security.UsuarioActual;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,11 +27,6 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class OrdenService {
-
-    /** Usuario/proceso que queda registrado en la auditoria (en el final se reemplaza por el usuario autenticado). */
-    public static final String PROCESO_SAP = "SAP";
-    public static final String PROCESO_TMS = "TMS";
-    public static final String PROCESO_SISTEMA_CARGA = "SISTEMA_CARGA";
 
     private final OrdenRepository ordenRepository;
     private final CambioEstadoRepository cambioEstadoRepository;
@@ -64,7 +60,7 @@ public class OrdenService {
 
         // El alta tambien queda en la auditoria (estado anterior = null)
         cambioEstadoRepository.save(new CambioEstado(orden, null, EstadoOrden.PENDIENTE_PESAJE_INICIAL,
-                PROCESO_SAP, "Orden recibida desde SAP"));
+                UsuarioActual.nombre(), "Orden recibida desde SAP"));
 
         return OrdenMapper.toResponse(orden);
     }
@@ -75,7 +71,7 @@ public class OrdenService {
     @Transactional
     public PesajeInicialResponse registrarPesajeInicial(Long numeroOrden, PesajeRequest req) {
         Orden orden = obtenerParaActualizar(numeroOrden);
-        cambiarEstado(orden, EstadoOrden.CON_PESAJE_INICIAL, PROCESO_TMS, req.observaciones());
+        cambiarEstado(orden, EstadoOrden.CON_PESAJE_INICIAL, req.observaciones());
 
         orden.setPesajeInicial(req.pesaje());
         orden.setFechaPesajeInicial(LocalDateTime.now());
@@ -97,7 +93,7 @@ public class OrdenService {
     public OrdenResponse cerrar(Long numeroOrden, CierreRequest req) {
         Orden orden = obtenerParaActualizar(numeroOrden);
         String observaciones = (req == null) ? null : req.observaciones();
-        cambiarEstado(orden, EstadoOrden.CERRADA_PARA_CARGA, PROCESO_SISTEMA_CARGA, observaciones);
+        cambiarEstado(orden, EstadoOrden.CERRADA_PARA_CARGA, observaciones);
         return OrdenMapper.toResponse(orden);
     }
 
@@ -107,7 +103,7 @@ public class OrdenService {
     @Transactional
     public ConciliacionResponse registrarPesajeFinal(Long numeroOrden, PesajeRequest req) {
         Orden orden = obtenerParaActualizar(numeroOrden);
-        cambiarEstado(orden, EstadoOrden.FINALIZADA, PROCESO_TMS, req.observaciones());
+        cambiarEstado(orden, EstadoOrden.FINALIZADA, req.observaciones());
         orden.setPesajeFinal(req.pesaje());
         orden.setFechaPesajeFinal(LocalDateTime.now());
         return calcularConciliacion(orden);
@@ -181,9 +177,9 @@ public class OrdenService {
 
     /**
      * Unico punto donde cambia el estado de una orden: valida que sea el estado siguiente
-     * y registra el cambio en la auditoria (dentro de la misma transaccion del que lo llama).
+     * y registra el cambio en la auditoria con el usuario autenticado (dentro de la misma transaccion del que lo llama).
      */
-    void cambiarEstado(Orden orden, EstadoOrden nuevo, String usuario, String observaciones) {
+    void cambiarEstado(Orden orden, EstadoOrden nuevo, String observaciones) {
         EstadoOrden actual = orden.getEstado();
         if (!actual.puedePasarA(nuevo)) {
             throw new EstadoInvalidoException("La orden %d esta en estado %d (%s) y no puede pasar a %d (%s)"
@@ -191,7 +187,7 @@ public class OrdenService {
                             nuevo.getNumero(), nuevo.getDescripcion()));
         }
         orden.setEstado(nuevo);
-        cambioEstadoRepository.save(new CambioEstado(orden, actual, nuevo, usuario, observaciones));
+        cambioEstadoRepository.save(new CambioEstado(orden, actual, nuevo, UsuarioActual.nombre(), observaciones));
     }
 
     private RecursoNoEncontradoException noEncontrada(Long numeroOrden) {

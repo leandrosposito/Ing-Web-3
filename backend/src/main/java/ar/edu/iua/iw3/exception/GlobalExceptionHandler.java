@@ -8,6 +8,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -35,8 +36,9 @@ public class GlobalExceptionHandler {
         return armar(HttpStatus.CONFLICT, ex.getMessage(), req, List.of());
     }
 
-    @ExceptionHandler(PasswordIncorrectaException.class)
-    public ResponseEntity<ErrorResponse> passwordIncorrecta(PasswordIncorrectaException ex, HttpServletRequest req) {
+    /** Contrasena de activacion de la orden incorrecta, o usuario/contrasena incorrectos en el login. */
+    @ExceptionHandler({PasswordIncorrectaException.class, BadCredentialsException.class})
+    public ResponseEntity<ErrorResponse> passwordIncorrecta(RuntimeException ex, HttpServletRequest req) {
         return armar(HttpStatus.UNAUTHORIZED, ex.getMessage(), req, List.of());
     }
 

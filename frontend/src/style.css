@@ -1,0 +1,57 @@
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: #f4f5f7;
+  color: #1f2933;
+}
+
+main { max-width: 1100px; margin: 0 auto; padding: 1.5rem 1rem; }
+
+.barra {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.75rem 1.5rem;
+  background: #1f3a5f;
+  color: white;
+}
+.barra nav { display: flex; gap: 1rem; flex: 1; }
+.barra a { color: #cfe0f5; text-decoration: none; }
+.barra a.router-link-exact-active { color: white; font-weight: 600; }
+
+button {
+  padding: 0.45rem 0.9rem;
+  border: 0;
+  border-radius: 4px;
+  background: #2f6fb5;
+  color: white;
+  cursor: pointer;
+}
+button:disabled { opacity: 0.6; cursor: default; }
+
+input, select, textarea {
+  padding: 0.45rem;
+  border: 1px solid #b8c2cc;
+  border-radius: 4px;
+  font: inherit;
+}
+
+table { width: 100%; border-collapse: collapse; background: white; }
+th, td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #e1e5ea; text-align: left; }
+th { background: #e9edf2; }
+
+.login {
+  max-width: 320px;
+  margin: 4rem auto;
+  padding: 1.5rem;
+  background: white;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+.login label { display: flex; flex-direction: column; gap: 0.25rem; }
+
+.error { color: #b3261e; margin: 0; }

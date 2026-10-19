@@ -35,7 +35,7 @@ public class CambioEstado {
     @Column(nullable = false)
     private LocalDateTime fechaHora;
 
-    /** Usuario o proceso que hizo la transicion (ej: SAP, TMS, SISTEMA_CARGA). */
+    /** Usuario autenticado que hizo la transicion (ej: sap, tms, carga). */
     @Column(nullable = false, length = 50)
     private String usuario;
 

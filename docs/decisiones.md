@@ -49,3 +49,15 @@ Este documento junta lo que decidimos y por qué. Sirve para preparar el coloqui
 | **OpenAPI / Swagger** | springdoc genera el spec a partir de los controllers, más `@Operation` / `@ApiResponse` con los errores reales de cada endpoint. |
 | **Configuración externalizada** | `application.properties` con `${VARIABLE:default}`, `.env` ignorado por git, perfil `h2`. |
 | **Testing** | Unitarios (JUnit) para las reglas puras, integración con `MockMvc` para el circuito completo, y la colección Postman con tests en JS. |
+
+## 4. Seguridad y login (parte de Fran)
+
+| # | Decisión | Por qué |
+|---|---|---|
+| 13 | **Un solo rol por usuario** (`Usuario.rol`, enum con SAP, TMS, SISTEMA_CARGA, OPERADOR, ADMIN). | Cada integración hace una sola cosa. Varios roles por usuario obligarían a una tabla intermedia sin ningún beneficio acá. |
+| 14 | **JWT con la librería jjwt**, firmado con HS256 y con vencimiento configurable (120 min por defecto). | Es la opción más directa y fácil de explicar: generar y validar un token son 2 métodos. No hay refresh token: al vencer, se vuelve a loguear. |
+| 15 | **Los `GET` los puede usar cualquier usuario logueado.** | El enunciado dice que la conciliación la consulta "cualquier cliente", y las consultas no modifican nada. Los `POST` sí se restringen por rol (ADMIN puede todo). |
+| 16 | **La auditoría guarda el username** (`sap`, `tms`, `carga`...), ya no el nombre del sistema. | Cierra el punto 9 de la sección 1: en el final el "usuario o proceso" es el usuario autenticado. |
+| 17 | **Usuarios de demo creados al arrancar** con la contraseña de `PASSWORD_DEMO` (por defecto `demo1234`, solo desarrollo). | Los equipos necesitan poder entrar sin cargar datos a mano, y la contraseña no queda fija en el código. No hay ABM de usuarios porque el enunciado no lo pide. |
+| 18 | **El token se guarda en `localStorage`** y se manda en el header `Authorization`. | Es lo más simple de implementar y explicar. El riesgo (XSS) se mitiga con tokens de vida corta. |
+| 19 | **Los 401/403 los arma `SecurityConfig` con el mismo JSON** que `GlobalExceptionHandler`. | Esos errores ocurren en los filtros, antes de llegar a un controller, por eso el `@RestControllerAdvice` no los ve. |
