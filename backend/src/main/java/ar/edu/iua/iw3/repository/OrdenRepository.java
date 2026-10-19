@@ -3,6 +3,7 @@ package ar.edu.iua.iw3.repository;
 import ar.edu.iua.iw3.model.EstadoOrden;
 import ar.edu.iua.iw3.model.Orden;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -19,6 +20,16 @@ public interface OrdenRepository extends JpaRepository<Orden, Long> {
     List<Orden> findByEstadoOrderByNumeroOrdenAsc(EstadoOrden estado);
 
     List<Orden> findAllByOrderByNumeroOrdenAsc();
+
+    /**
+     * Consulta del monitoreo: el estado es opcional (null = todos) y la patente filtra por "contiene" sin
+     * distinguir mayusculas (texto vacio = todas). El orden llega en el parametro Sort.
+     */
+    @Query("""
+            select o from Orden o
+            where (:estado is null or o.estado = :estado)
+              and lower(o.camion.patente) like lower(concat('%', :patente, '%'))""")
+    List<Orden> buscarParaMonitoreo(EstadoOrden estado, String patente, Sort sort);
 
     /**
      * Igual que findByNumeroOrden pero bloquea la fila (SELECT ... FOR UPDATE) hasta que termine la transaccion.
