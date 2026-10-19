@@ -75,3 +75,15 @@ Este documento junta lo que decidimos y por qué. Sirve para preparar el coloqui
 | 26 | **Una sola alarma pendiente por orden.** Mientras exista, no se crean más ni se mandan más mails; después de aceptarla, un nuevo dato sobre el umbral vuelve a alarmar. | Es la regla "no se vuelve a enviar hasta que un usuario autorizado la acepte". |
 | 27 | **El mail se manda después del commit** (`@TransactionalEventListener`) y **si falla solo se registra en el log**. | No debe salir un mail de una alarma que no se guardó, y un SMTP caído no debe impedir recibir los datos de carga. La alarma queda visible en la pantalla igualmente. |
 | 28 | **Aceptar una alarma: solo `OPERADOR` y `ADMIN`.** La observación es opcional; el usuario sale del token y la fecha/hora del servidor. | "Usuario autorizado" del enunciado. Tomar el usuario del token evita aceptar a nombre de otro. |
+
+## 6. Conciliaciones, despliegue y Postman (parte de Lean)
+
+| # | Decisión | Por qué |
+|---|---|---|
+| 29 | **La pantalla de conciliaciones usa los endpoints del parcial** (`GET /ordenes?estado=FINALIZADA` y `GET /ordenes/{n}/conciliacion`); no se agregó nada al backend. | Ya hacían exactamente lo que necesita la pantalla. Menos piezas, menos para explicar. |
+| 30 | **Sin refresco automático en conciliaciones** (solo un botón "Actualizar lista"). | Una orden finalizada no cambia, a diferencia del monitoreo. |
+| 31 | **Docker Compose con 4 servicios** (MySQL, backend, frontend con nginx, Mailpit) y **Dockerfiles de dos etapas**. | Un solo comando levanta todo; la imagen final no lleva las herramientas de compilación. |
+| 32 | **nginx del frontend reenvía `/api` al backend**, y el frontend llama siempre a rutas relativas. | Igual que el proxy de Vite en desarrollo. El navegador habla con un único origen y no hace falta configurar CORS. |
+| 33 | **Solo se publican los puertos 3000 (web), 8080 (API/Swagger) y 8025 (Mailpit).** MySQL queda interno. | Evita choques con un MySQL local en el 3306 y no expone la base. |
+| 34 | **Valores por defecto de desarrollo en el compose** (`${VAR:-valor}`); para cambiarlos se usa un `.env` que no se sube (hay un `.env.example`). | El proyecto arranca sin configurar nada (útil para el coloquio), sin dejar secretos reales en el repo. |
+| 35 | **Postman: un login que guarda el token y Bearer a nivel colección**, con el usuario `admin` por defecto (variable `usuario`). | Ningún request existente se modifica y con admin corre el circuito completo. Cambiando `usuario` se prueban los demás roles. |

@@ -22,6 +22,7 @@ watch(
       <RouterLink to="/">Inicio</RouterLink>
       <RouterLink to="/monitoreo">Monitoreo</RouterLink>
       <RouterLink to="/alarmas">Alarmas</RouterLink>
+      <RouterLink to="/conciliaciones">Conciliaciones</RouterLink>
     </nav>
     <span class="usuario">{{ auth.username }} ({{ auth.rol }})</span>
     <button @click="auth.logout()">Salir</button>
