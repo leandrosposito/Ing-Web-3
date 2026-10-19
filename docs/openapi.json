@@ -1,0 +1,1252 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "IW3 - Ordenes de carga de gas licuado",
+    "description": "APIs de integracion con SAP, TMS (balanza) y el sistema de carga.\n\nCiclo de una orden: 1 Pendiente de pesaje inicial -> 2 Con pesaje inicial registrado\n-> 3 Cerrada para carga -> 4 Finalizada. Los estados no pueden retroceder.\n\nErrores: 400 datos invalidos, 401 password incorrecta, 404 orden inexistente,\n409 la operacion no corresponde al estado actual de la orden (o numero de orden duplicado).",
+    "version": "v1"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "Generated server url"
+    }
+  ],
+  "tags": [
+    {
+      "name": "4. Consultas",
+      "description": "Consulta de ordenes, auditoria, detalle y conciliacion"
+    },
+    {
+      "name": "3. Sistema de carga",
+      "description": "Habilitacion, datos en tiempo real y cierre de la carga"
+    },
+    {
+      "name": "1. SAP",
+      "description": "Recepcion de ordenes desde el sistema externo"
+    },
+    {
+      "name": "2. TMS (balanza)",
+      "description": "Pesaje inicial (tara) y pesaje final"
+    }
+  ],
+  "paths": {
+    "/api/v1/ordenes": {
+      "get": {
+        "tags": [
+          "4. Consultas"
+        ],
+        "summary": "Listar ordenes",
+        "description": "Opcionalmente filtradas por estado.",
+        "operationId": "listar",
+        "parameters": [
+          {
+            "name": "estado",
+            "in": "query",
+            "description": "Filtro opcional por estado",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDIENTE_PESAJE_INICIAL",
+                "CON_PESAJE_INICIAL",
+                "CERRADA_PARA_CARGA",
+                "FINALIZADA"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OrdenResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "1. SAP"
+        ],
+        "summary": "Punto 1 - Recibir orden desde SAP",
+        "description": "Sincroniza camion, chofer, cliente y producto por codigo externo (los crea o actualiza) y crea la orden en estado 1: Pendiente de pesaje inicial.",
+        "operationId": "crear",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrdenSapRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Orden creada",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrdenResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Datos invalidos",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Ya existe una orden con ese numero",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ordenes/{numeroOrden}/pesaje-inicial": {
+      "post": {
+        "tags": [
+          "2. TMS (balanza)"
+        ],
+        "summary": "Punto 2 - Registrar pesaje inicial (tara)",
+        "description": "Registra el peso del camion vacio, genera la contrasena de activacion de 5 digitos y pasa la orden a estado 2. Solo para ordenes en estado 1.",
+        "operationId": "pesajeInicial",
+        "parameters": [
+          {
+            "name": "numeroOrden",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PesajeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Pesaje registrado; incluye la contrasena de activacion",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PesajeInicialResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Datos invalidos",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "La orden no existe",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "La orden no esta en estado 1",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ordenes/{numeroOrden}/pesaje-final": {
+      "post": {
+        "tags": [
+          "2. TMS (balanza)"
+        ],
+        "summary": "Punto 5 - Registrar pesaje final y obtener la conciliacion",
+        "description": "Registra el peso del camion cargado, pasa la orden a estado 4: Finalizada y devuelve la conciliacion. Solo para ordenes en estado 3.",
+        "operationId": "pesajeFinal",
+        "parameters": [
+          {
+            "name": "numeroOrden",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PesajeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Pesaje registrado; se devuelve la conciliacion",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConciliacionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Datos invalidos",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "La orden no existe",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "La orden no esta en estado 3",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ordenes/{numeroOrden}/habilitar-carga": {
+      "post": {
+        "tags": [
+          "3. Sistema de carga"
+        ],
+        "summary": "Punto 3.1 - Habilitar carga (password -> preset)",
+        "description": "Valida que la orden exista, este en estado 2 y la contrasena sea correcta. Devuelve el preset para iniciar la carga. No cambia el estado.",
+        "operationId": "habilitarCarga",
+        "parameters": [
+          {
+            "name": "numeroOrden",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HabilitacionCargaRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Contrasena correcta; se devuelve el preset",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/HabilitacionCargaResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Datos invalidos",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Contrasena incorrecta",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "La orden no existe",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "La orden no esta en estado 2",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ordenes/{numeroOrden}/detalle": {
+      "get": {
+        "tags": [
+          "4. Consultas"
+        ],
+        "summary": "Detalle de carga almacenado",
+        "description": "Registros historicos guardados segun la frecuencia configurada.",
+        "operationId": "detalle",
+        "parameters": [
+          {
+            "name": "numeroOrden",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DetalleCargaResponse"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "La orden no existe",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "3. Sistema de carga"
+        ],
+        "summary": "Punto 3.3 - Recibir dato de carga en tiempo real",
+        "description": "Se descarta (aceptado=false) si caudal <= 0, masa <= 0, masa menor a la anterior o densidad fuera de (0, 1]. Si es valido actualiza la cabecera de la orden y, segun la frecuencia configurada, se guarda como detalle. Solo para ordenes en estado 2.",
+        "operationId": "detalle_1",
+        "parameters": [
+          {
+            "name": "numeroOrden",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DetalleCargaRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Dato procesado (ver aceptado / almacenado / motivoDescarte)",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DetalleCargaResultado"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Faltan valores o tienen formato invalido",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "La orden no existe",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "La orden no esta en estado 2 (por ejemplo, ya fue cerrada)",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ordenes/{numeroOrden}/cierre": {
+      "post": {
+        "tags": [
+          "3. Sistema de carga"
+        ],
+        "summary": "Punto 4 - Cerrar la orden",
+        "description": "Pasa la orden a estado 3: Cerrada para carga. A partir de aca se rechazan nuevos datos de detalle. El body es opcional (observaciones para la auditoria). Solo para ordenes en estado 2.",
+        "operationId": "cerrar",
+        "parameters": [
+          {
+            "name": "numeroOrden",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CierreRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Orden cerrada",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrdenResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "La orden no existe",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "La orden no esta en estado 2",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ordenes/{numeroOrden}": {
+      "get": {
+        "tags": [
+          "4. Consultas"
+        ],
+        "summary": "Consultar una orden",
+        "description": "Incluye la cabecera con los ultimos valores de carga.",
+        "operationId": "buscar",
+        "parameters": [
+          {
+            "name": "numeroOrden",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrdenResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "La orden no existe",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ordenes/{numeroOrden}/historial-estados": {
+      "get": {
+        "tags": [
+          "4. Consultas"
+        ],
+        "summary": "Log de auditoria de estados",
+        "description": "Todos los cambios de estado de la orden, en orden cronologico.",
+        "operationId": "historial",
+        "parameters": [
+          {
+            "name": "numeroOrden",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CambioEstadoResponse"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "La orden no existe",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ordenes/{numeroOrden}/conciliacion": {
+      "get": {
+        "tags": [
+          "4. Consultas"
+        ],
+        "summary": "Punto 5 - Consultar conciliacion",
+        "description": "Solo disponible para ordenes en estado 4: Finalizada.",
+        "operationId": "conciliacion",
+        "parameters": [
+          {
+            "name": "numeroOrden",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConciliacionResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "La orden no existe",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "La orden todavia no esta finalizada",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CamionDto": {
+        "type": "object",
+        "properties": {
+          "codigoExterno": {
+            "type": "string",
+            "example": "CAM-001",
+            "maxLength": 50,
+            "minLength": 0
+          },
+          "patente": {
+            "type": "string",
+            "example": "AB123CD",
+            "maxLength": 20,
+            "minLength": 0
+          },
+          "descripcion": {
+            "type": "string",
+            "example": "Scania cisterna doble"
+          },
+          "cisternas": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CisternaDto"
+            },
+            "minItems": 1
+          }
+        },
+        "required": [
+          "cisternas",
+          "codigoExterno",
+          "patente"
+        ]
+      },
+      "ChoferDto": {
+        "type": "object",
+        "properties": {
+          "codigoExterno": {
+            "type": "string",
+            "example": "CHO-001",
+            "maxLength": 50,
+            "minLength": 0
+          },
+          "nombre": {
+            "type": "string",
+            "example": "Juan",
+            "minLength": 1
+          },
+          "apellido": {
+            "type": "string",
+            "example": "Perez",
+            "minLength": 1
+          },
+          "documento": {
+            "type": "string",
+            "example": "30123456"
+          }
+        },
+        "required": [
+          "apellido",
+          "codigoExterno",
+          "nombre"
+        ]
+      },
+      "CisternaDto": {
+        "type": "object",
+        "properties": {
+          "numero": {
+            "type": "integer",
+            "format": "int32",
+            "example": 1,
+            "exclusiveMinimum": 0
+          },
+          "capacidadLitros": {
+            "type": "number",
+            "format": "double",
+            "description": "Capacidad en litros",
+            "example": 10000,
+            "exclusiveMinimum": 0
+          }
+        },
+        "required": [
+          "capacidadLitros",
+          "numero"
+        ]
+      },
+      "ClienteDto": {
+        "type": "object",
+        "properties": {
+          "codigoExterno": {
+            "type": "string",
+            "example": "CLI-001",
+            "maxLength": 50,
+            "minLength": 0
+          },
+          "razonSocial": {
+            "type": "string",
+            "example": "Gas del Centro S.A.",
+            "minLength": 1
+          },
+          "contacto": {
+            "type": "string",
+            "example": "compras@gasdelcentro.com"
+          }
+        },
+        "required": [
+          "codigoExterno",
+          "razonSocial"
+        ]
+      },
+      "OrdenSapRequest": {
+        "type": "object",
+        "properties": {
+          "numeroOrden": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1001,
+            "exclusiveMinimum": 0
+          },
+          "camion": {
+            "$ref": "#/components/schemas/CamionDto"
+          },
+          "chofer": {
+            "$ref": "#/components/schemas/ChoferDto"
+          },
+          "cliente": {
+            "$ref": "#/components/schemas/ClienteDto"
+          },
+          "producto": {
+            "$ref": "#/components/schemas/ProductoDto"
+          },
+          "fechaPrevistaCarga": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Turno de carga",
+            "example": "2026-11-10T08:00:00"
+          },
+          "preset": {
+            "type": "number",
+            "format": "double",
+            "description": "Kilogramos a cargar",
+            "example": 20000,
+            "exclusiveMinimum": 0
+          }
+        },
+        "required": [
+          "camion",
+          "chofer",
+          "cliente",
+          "fechaPrevistaCarga",
+          "numeroOrden",
+          "preset",
+          "producto"
+        ]
+      },
+      "ProductoDto": {
+        "type": "object",
+        "properties": {
+          "codigoExterno": {
+            "type": "string",
+            "example": "PRO-001",
+            "maxLength": 50,
+            "minLength": 0
+          },
+          "nombre": {
+            "type": "string",
+            "example": "Propano",
+            "minLength": 1
+          },
+          "descripcion": {
+            "type": "string",
+            "example": "Gas licuado de petroleo - propano"
+          }
+        },
+        "required": [
+          "codigoExterno",
+          "nombre"
+        ]
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "error": {
+            "type": "string"
+          },
+          "mensaje": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "detalles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "CamionResponse": {
+        "type": "object",
+        "properties": {
+          "codigoExterno": {
+            "type": "string"
+          },
+          "patente": {
+            "type": "string"
+          },
+          "descripcion": {
+            "type": "string"
+          },
+          "cisternas": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CisternaDto"
+            }
+          },
+          "capacidadTotalLitros": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "OrdenResponse": {
+        "type": "object",
+        "properties": {
+          "numeroOrden": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "estado": {
+            "type": "string",
+            "enum": [
+              "PENDIENTE_PESAJE_INICIAL",
+              "CON_PESAJE_INICIAL",
+              "CERRADA_PARA_CARGA",
+              "FINALIZADA"
+            ]
+          },
+          "estadoNumero": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "estadoDescripcion": {
+            "type": "string"
+          },
+          "camion": {
+            "$ref": "#/components/schemas/CamionResponse"
+          },
+          "chofer": {
+            "$ref": "#/components/schemas/ChoferDto"
+          },
+          "cliente": {
+            "$ref": "#/components/schemas/ClienteDto"
+          },
+          "producto": {
+            "$ref": "#/components/schemas/ProductoDto"
+          },
+          "fechaPrevistaCarga": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "preset": {
+            "type": "number",
+            "format": "double"
+          },
+          "fechaRecepcion": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "pesajeInicial": {
+            "type": "number",
+            "format": "double"
+          },
+          "fechaPesajeInicial": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "fechaInicioCarga": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "fechaFinCarga": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ultimaMasaAcumulada": {
+            "type": "number",
+            "format": "double"
+          },
+          "ultimaDensidad": {
+            "type": "number",
+            "format": "double"
+          },
+          "ultimaTemperatura": {
+            "type": "number",
+            "format": "double"
+          },
+          "ultimoCaudal": {
+            "type": "number",
+            "format": "double"
+          },
+          "fechaUltimoDato": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "pesajeFinal": {
+            "type": "number",
+            "format": "double"
+          },
+          "fechaPesajeFinal": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PesajeRequest": {
+        "type": "object",
+        "properties": {
+          "pesaje": {
+            "type": "number",
+            "format": "double",
+            "description": "Peso del camion en kg",
+            "example": 15000,
+            "exclusiveMinimum": 0
+          },
+          "observaciones": {
+            "type": "string",
+            "description": "Opcional, queda en el log de auditoria",
+            "maxLength": 500,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "pesaje"
+        ]
+      },
+      "PesajeInicialResponse": {
+        "type": "object",
+        "properties": {
+          "numeroOrden": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "estado": {
+            "type": "string",
+            "enum": [
+              "PENDIENTE_PESAJE_INICIAL",
+              "CON_PESAJE_INICIAL",
+              "CERRADA_PARA_CARGA",
+              "FINALIZADA"
+            ]
+          },
+          "pesajeInicial": {
+            "type": "number",
+            "format": "double"
+          },
+          "fechaPesajeInicial": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "password": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ConciliacionResponse": {
+        "type": "object",
+        "properties": {
+          "numeroOrden": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "pesajeInicial": {
+            "type": "number",
+            "format": "double",
+            "description": "Tara (kg)"
+          },
+          "pesajeFinal": {
+            "type": "number",
+            "format": "double",
+            "description": "kg"
+          },
+          "productoCargado": {
+            "type": "number",
+            "format": "double",
+            "description": "Ultima masa acumulada medida por el caudalimetro (kg)"
+          },
+          "netoPorBalanza": {
+            "type": "number",
+            "format": "double",
+            "description": "Pesaje final - pesaje inicial (kg)"
+          },
+          "diferenciaBalanzaCaudalimetro": {
+            "type": "number",
+            "format": "double",
+            "description": "Neto por balanza - producto cargado (kg)"
+          },
+          "promedioTemperatura": {
+            "type": "number",
+            "format": "double",
+            "description": "Promedio de los datos almacenados (null si no hay detalle)"
+          },
+          "promedioDensidad": {
+            "type": "number",
+            "format": "double"
+          },
+          "promedioCaudal": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "HabilitacionCargaRequest": {
+        "type": "object",
+        "properties": {
+          "password": {
+            "type": "integer",
+            "format": "int32",
+            "example": 48213
+          }
+        },
+        "required": [
+          "password"
+        ]
+      },
+      "HabilitacionCargaResponse": {
+        "type": "object",
+        "properties": {
+          "numeroOrden": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "preset": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "DetalleCargaRequest": {
+        "type": "object",
+        "properties": {
+          "masaAcumulada": {
+            "type": "number",
+            "format": "double",
+            "description": "kg cargados hasta el momento",
+            "example": 1500
+          },
+          "densidad": {
+            "type": "number",
+            "format": "double",
+            "description": "Entre 0 y 1",
+            "example": 0.52
+          },
+          "temperatura": {
+            "type": "number",
+            "format": "double",
+            "description": "Grados centigrados",
+            "example": 18.5
+          },
+          "caudal": {
+            "type": "number",
+            "format": "double",
+            "description": "kg/h",
+            "example": 60000
+          }
+        },
+        "required": [
+          "caudal",
+          "densidad",
+          "masaAcumulada",
+          "temperatura"
+        ]
+      },
+      "DetalleCargaResultado": {
+        "type": "object",
+        "properties": {
+          "numeroOrden": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "aceptado": {
+            "type": "boolean",
+            "description": "true si el dato es valido y actualizo la cabecera de la orden"
+          },
+          "almacenado": {
+            "type": "boolean",
+            "description": "true si ademas se guardo como registro de detalle (depende de la frecuencia configurada)"
+          },
+          "motivoDescarte": {
+            "type": "string",
+            "description": "Motivo por el que se descarto el dato (null si fue aceptado)"
+          }
+        }
+      },
+      "CierreRequest": {
+        "type": "object",
+        "properties": {
+          "observaciones": {
+            "type": "string",
+            "example": "Carga completa",
+            "maxLength": 500,
+            "minLength": 0
+          }
+        }
+      },
+      "CambioEstadoResponse": {
+        "type": "object",
+        "properties": {
+          "estadoAnterior": {
+            "type": "string",
+            "enum": [
+              "PENDIENTE_PESAJE_INICIAL",
+              "CON_PESAJE_INICIAL",
+              "CERRADA_PARA_CARGA",
+              "FINALIZADA"
+            ]
+          },
+          "estadoNuevo": {
+            "type": "string",
+            "enum": [
+              "PENDIENTE_PESAJE_INICIAL",
+              "CON_PESAJE_INICIAL",
+              "CERRADA_PARA_CARGA",
+              "FINALIZADA"
+            ]
+          },
+          "fechaHora": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "usuario": {
+            "type": "string"
+          },
+          "observaciones": {
+            "type": "string"
+          }
+        }
+      },
+      "DetalleCargaResponse": {
+        "type": "object",
+        "properties": {
+          "masaAcumulada": {
+            "type": "number",
+            "format": "double"
+          },
+          "densidad": {
+            "type": "number",
+            "format": "double"
+          },
+          "temperatura": {
+            "type": "number",
+            "format": "double"
+          },
+          "caudal": {
+            "type": "number",
+            "format": "double"
+          },
+          "fechaHora": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,965 @@
+{
+  "info": {
+    "name": "IW3 - Ordenes de carga de gas licuado",
+    "description": "Circuito completo de una orden (puntos 1 a 5) con casos de error.\n\nCorrer con el Collection Runner (o newman) en orden: cada request guarda variables (numeroOrden, password, masa) que usan los siguientes.\n\nCambiar baseUrl en las variables de la coleccion si el backend no esta en localhost:8080.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Circuito completo de una orden",
+      "item": [
+        {
+          "name": "01 [SAP] Crear orden",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ordenes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ordenes"
+              ]
+            },
+            "description": "Punto 1. SAP envia la orden; se sincronizan camion, chofer, cliente y producto por codigo externo.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"numeroOrden\": {{numeroOrden}},\n  \"camion\": {\n    \"codigoExterno\": \"CAM-001\",\n    \"patente\": \"AB123CD\",\n    \"descripcion\": \"Scania cisterna doble\",\n    \"cisternas\": [\n      { \"numero\": 1, \"capacidadLitros\": 10000 },\n      { \"numero\": 2, \"capacidadLitros\": 5000 }\n    ]\n  },\n  \"chofer\": { \"codigoExterno\": \"CHO-001\", \"nombre\": \"Juan\", \"apellido\": \"Perez\", \"documento\": \"30123456\" },\n  \"cliente\": { \"codigoExterno\": \"CLI-001\", \"razonSocial\": \"Gas del Centro S.A.\", \"contacto\": \"compras@gasdelcentro.com\" },\n  \"producto\": { \"codigoExterno\": \"PRO-001\", \"nombre\": \"Propano\", \"descripcion\": \"Gas licuado de petroleo\" },\n  \"fechaPrevistaCarga\": \"2026-11-10T08:00:00\",\n  \"preset\": 20000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Numero de orden aleatorio para poder correr la coleccion muchas veces sin duplicados",
+                  "pm.collectionVariables.set(\"numeroOrden\", Math.floor(100000 + Math.random() * 900000000));",
+                  "pm.collectionVariables.set(\"masa\", 0);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+                  "",
+                  "const o = pm.response.json();",
+                  "pm.test(\"Queda en estado 1\", () => pm.expect(o.estadoNumero).to.eql(1));",
+                  "pm.test(\"Capacidad total = suma de cisternas\", () => pm.expect(o.camion.capacidadTotalLitros).to.eql(15000));",
+                  "pm.test(\"Header Location\", () => pm.response.to.have.header(\"Location\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "02 [SAP] Crear orden duplicada (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ordenes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ordenes"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"numeroOrden\": {{numeroOrden}},\n  \"camion\": {\n    \"codigoExterno\": \"CAM-001\",\n    \"patente\": \"AB123CD\",\n    \"descripcion\": \"Scania cisterna doble\",\n    \"cisternas\": [\n      { \"numero\": 1, \"capacidadLitros\": 10000 },\n      { \"numero\": 2, \"capacidadLitros\": 5000 }\n    ]\n  },\n  \"chofer\": { \"codigoExterno\": \"CHO-001\", \"nombre\": \"Juan\", \"apellido\": \"Perez\", \"documento\": \"30123456\" },\n  \"cliente\": { \"codigoExterno\": \"CLI-001\", \"razonSocial\": \"Gas del Centro S.A.\", \"contacto\": \"compras@gasdelcentro.com\" },\n  \"producto\": { \"codigoExterno\": \"PRO-001\", \"nombre\": \"Propano\", \"descripcion\": \"Gas licuado de petroleo\" },\n  \"fechaPrevistaCarga\": \"2026-11-10T08:00:00\",\n  \"preset\": 20000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 409\", () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "03 [SAP] Crear orden con datos invalidos (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ordenes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ordenes"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"numeroOrden\": -1, \"camion\": { \"codigoExterno\": \"\", \"patente\": \"X\", \"cisternas\": [] } }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Lista los campos invalidos\", () => pm.expect(pm.response.json().detalles).to.not.be.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "04 [Consulta] Ver orden",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ordenes/{{numeroOrden}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ordenes",
+                "{{numeroOrden}}"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Estado 1\", () => pm.expect(pm.response.json().estado).to.eql(\"PENDIENTE_PESAJE_INICIAL\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "05 [Carga] Habilitar antes de la tara (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ordenes/{{numeroOrden}}/habilitar-carga",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ordenes",
+                "{{numeroOrden}}",
+                "habilitar-carga"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"password\": 12345 }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 409\", () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "06 [TMS] Pesaje inicial (tara)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ordenes/{{numeroOrden}}/pesaje-inicial",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ordenes",
+                "{{numeroOrden}}",
+                "pesaje-inicial"
+              ]
+            },
+            "description": "Punto 2. Devuelve la contrasena de activacion; se guarda en la variable {{password}}.",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"pesaje\": 15000, \"observaciones\": \"Ingreso a planta\" }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Pasa a estado 2\", () => pm.expect(r.estado).to.eql(\"CON_PESAJE_INICIAL\"));",
+                  "pm.test(\"Password de 5 digitos\", () => pm.expect(String(r.password)).to.match(/^\\d{5}$/));",
+                  "pm.collectionVariables.set(\"password\", r.password);",
+                  "pm.collectionVariables.set(\"tara\", r.pesajeInicial);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "07 [TMS] Pesaje inicial repetido (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ordenes/{{numeroOrden}}/pesaje-inicial",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ordenes",
+                "{{numeroOrden}}",
+                "pesaje-inicial"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"pesaje\": 15000 }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 409\", () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "08 [Carga] Habilitar con password incorrecta (401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ordenes/{{numeroOrden}}/habilitar-carga",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ordenes",
+                "{{numeroOrden}}",
+                "habilitar-carga"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"password\": {{passwordIncorrecta}} }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const pw = Number(pm.collectionVariables.get(\"password\"));",
+                  "pm.collectionVariables.set(\"passwordIncorrecta\", pw === 99999 ? 10000 : pw + 1);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "09 [Carga] Habilitar carga (password -> preset)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ordenes/{{numeroOrden}}/habilitar-carga",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ordenes",
+                "{{numeroOrden}}",
+                "habilitar-carga"
+              ]
+            },
+            "description": "Punto 3.1 / 3.2.",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"password\": {{password}} }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Devuelve el preset\", () => pm.expect(pm.response.json().preset).to.eql(20000));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10 [Carga] Enviar dato de carga (se repite 5 veces)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ordenes/{{numeroOrden}}/detalle",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ordenes",
+                "{{numeroOrden}}",
+                "detalle"
+              ]
+            },
+            "description": "Punto 3.3. En el Runner se repite hasta masa = 5000 kg.",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"masaAcumulada\": {{masa}}, \"densidad\": 0.52, \"temperatura\": {{temperatura}}, \"caudal\": 60000 }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const masa = Number(pm.collectionVariables.get(\"masa\") || 0) + 1000;",
+                  "pm.collectionVariables.set(\"masa\", masa);",
+                  "pm.collectionVariables.set(\"temperatura\", (15 + Math.random() * 10).toFixed(1));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "pm.test(\"Dato aceptado\", () => pm.expect(pm.response.json().aceptado).to.be.true);",
+                  "// Simula el envio periodico: repite este request hasta llegar a 5000 kg (solo en el Collection Runner / newman)",
+                  "if (Number(pm.collectionVariables.get(\"masa\")) < 5000) {",
+                  "    pm.execution.setNextRequest(pm.info.requestName);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11 [Carga] Dato descartado: caudal 0",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ordenes/{{numeroOrden}}/detalle",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ordenes",
+                "{{numeroOrden}}",
+                "detalle"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"masaAcumulada\": 9000, \"densidad\": 0.52, \"temperatura\": 18, \"caudal\": 0 }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Descartado\", () => pm.expect(pm.response.json().aceptado).to.be.false);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "12 [Carga] Dato descartado: masa menor a la anterior",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ordenes/{{numeroOrden}}/detalle",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ordenes",
+                "{{numeroOrden}}",
+                "detalle"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"masaAcumulada\": 1, \"densidad\": 0.52, \"temperatura\": 18, \"caudal\": 60000 }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Descartado\", () => pm.expect(pm.response.json().aceptado).to.be.false);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "13 [Consulta] Cabecera con ultimos valores",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ordenes/{{numeroOrden}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ordenes",
+                "{{numeroOrden}}"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Ultima masa = ultimo dato valido\", () => pm.expect(pm.response.json().ultimaMasaAcumulada).to.eql(Number(pm.collectionVariables.get(\"masa\"))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "14 [Consulta] Conciliacion antes de finalizar (409)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ordenes/{{numeroOrden}}/conciliacion",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ordenes",
+                "{{numeroOrden}}",
+                "conciliacion"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 409\", () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "15 [Carga] Cerrar orden",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ordenes/{{numeroOrden}}/cierre",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ordenes",
+                "{{numeroOrden}}",
+                "cierre"
+              ]
+            },
+            "description": "Punto 4.",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"observaciones\": \"Carga completa\" }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Pasa a estado 3\", () => pm.expect(pm.response.json().estadoNumero).to.eql(3));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "16 [Carga] Dato despues del cierre (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ordenes/{{numeroOrden}}/detalle",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ordenes",
+                "{{numeroOrden}}",
+                "detalle"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"masaAcumulada\": 9000, \"densidad\": 0.52, \"temperatura\": 18, \"caudal\": 60000 }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 409\", () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "17 [TMS] Pesaje final + conciliacion",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ordenes/{{numeroOrden}}/pesaje-final",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ordenes",
+                "{{numeroOrden}}",
+                "pesaje-final"
+              ]
+            },
+            "description": "Punto 5. Pasa a estado 4 y devuelve la conciliacion.",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"pesaje\": 20100, \"observaciones\": \"Salida de planta\" }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const c = pm.response.json();",
+                  "const masa = Number(pm.collectionVariables.get(\"masa\"));",
+                  "pm.test(\"Producto cargado = ultima masa\", () => pm.expect(c.productoCargado).to.eql(masa));",
+                  "pm.test(\"Neto = final - tara\", () => pm.expect(c.netoPorBalanza).to.eql(c.pesajeFinal - c.pesajeInicial));",
+                  "pm.test(\"Diferencia = neto - producto\", () => pm.expect(c.diferenciaBalanzaCaudalimetro).to.eql(c.netoPorBalanza - c.productoCargado));",
+                  "pm.test(\"Promedios calculados\", () => pm.expect(c.promedioTemperatura).to.be.a(\"number\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "18 [Consulta] Conciliacion",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ordenes/{{numeroOrden}}/conciliacion",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ordenes",
+                "{{numeroOrden}}",
+                "conciliacion"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "19 [Consulta] Historial de estados (auditoria)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ordenes/{{numeroOrden}}/historial-estados",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ordenes",
+                "{{numeroOrden}}",
+                "historial-estados"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const h = pm.response.json();",
+                  "pm.test(\"4 cambios de estado, en orden\", () => {",
+                  "    pm.expect(h.map(x => x.estadoNuevo)).to.eql([\"PENDIENTE_PESAJE_INICIAL\", \"CON_PESAJE_INICIAL\", \"CERRADA_PARA_CARGA\", \"FINALIZADA\"]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "20 [Consulta] Detalle almacenado",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ordenes/{{numeroOrden}}/detalle",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ordenes",
+                "{{numeroOrden}}",
+                "detalle"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Hay detalle guardado\", () => pm.expect(pm.response.json()).to.not.be.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "21 [Consulta] Listar ordenes finalizadas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ordenes?estado=FINALIZADA",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ordenes"
+              ],
+              "query": [
+                {
+                  "key": "estado",
+                  "value": "FINALIZADA"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Incluye la orden\", () => pm.expect(pm.response.json().map(o => o.numeroOrden)).to.include(Number(pm.collectionVariables.get(\"numeroOrden\"))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "22 [Consulta] Orden inexistente (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ordenes/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ordenes",
+                "1"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080/api/v1"
+    },
+    {
+      "key": "numeroOrden",
+      "value": ""
+    },
+    {
+      "key": "password",
+      "value": ""
+    },
+    {
+      "key": "passwordIncorrecta",
+      "value": ""
+    },
+    {
+      "key": "masa",
+      "value": "0"
+    },
+    {
+      "key": "temperatura",
+      "value": "18"
+    },
+    {
+      "key": "tara",
+      "value": ""
+    }
+  ]
+}
