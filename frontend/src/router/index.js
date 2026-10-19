@@ -4,6 +4,7 @@ import LoginView from '../views/LoginView.vue'
 import InicioView from '../views/InicioView.vue'
 import MonitoreoView from '../views/MonitoreoView.vue'
 import AlarmasView from '../views/AlarmasView.vue'
+import ConciliacionesView from '../views/ConciliacionesView.vue'
 
 // Una ruta por linea. Las que no tienen "publica" exigen estar logueado.
 const rutas = [
@@ -11,6 +12,7 @@ const rutas = [
   { path: '/', component: InicioView },
   { path: '/monitoreo', component: MonitoreoView },
   { path: '/alarmas', component: AlarmasView },
+  { path: '/conciliaciones', component: ConciliacionesView },
   { path: '/:pagina(.*)*', redirect: '/' },
 ]
 
