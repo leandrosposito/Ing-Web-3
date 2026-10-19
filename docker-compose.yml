@@ -1,0 +1,59 @@
+# Levanta todo el sistema con un solo comando:  docker compose up --build
+#
+# Las variables ${NOMBRE:-valor} toman el valor de un archivo .env (copiar .env.example) y,
+# si no existe, usan el valor de despues de ":-" (solo sirve para desarrollo).
+
+services:
+
+  # Base de datos
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-root1234}
+    volumes:
+      - datos-mysql:/var/lib/mysql   # los datos sobreviven aunque se borre el contenedor
+    healthcheck:                      # el backend espera a que MySQL responda
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Servidor de mail de prueba: recibe los mails de las alarmas y los muestra en una web
+  mailpit:
+    image: axllent/mailpit
+    ports:
+      - "8025:8025"   # bandeja de entrada: http://localhost:8025
+
+  # API
+  backend:
+    build: ./backend
+    depends_on:
+      mysql:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    environment:
+      # Dentro de la red de compose, cada servicio se encuentra por su nombre (mysql, mailpit)
+      DB_URL: jdbc:mysql://mysql:3306/iw3?createDatabaseIfNotExist=true&serverTimezone=America/Argentina/Buenos_Aires
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD:-root1234}
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+      JWT_SECRET: ${JWT_SECRET:-clave-solo-para-desarrollo-cambiar-en-produccion-123456}
+      PASSWORD_DEMO: ${PASSWORD_DEMO:-demo1234}
+      ALARMA_TEMPERATURA_UMBRAL: ${ALARMA_TEMPERATURA_UMBRAL:-40}
+      ALARMA_DESTINATARIOS: ${ALARMA_DESTINATARIOS:-operaciones@planta.local}
+      JAVA_TOOL_OPTIONS: -Duser.timezone=America/Argentina/Buenos_Aires
+    ports:
+      - "8080:8080"   # Swagger: http://localhost:8080/swagger-ui.html (y para Postman)
+
+  # Pantallas web
+  frontend:
+    build: ./frontend
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"     # http://localhost:3000
+
+volumes:
+  datos-mysql:
