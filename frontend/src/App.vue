@@ -20,6 +20,8 @@ watch(
     <strong>IW3 · Ordenes de carga</strong>
     <nav>
       <RouterLink to="/">Inicio</RouterLink>
+      <RouterLink to="/monitoreo">Monitoreo</RouterLink>
+      <RouterLink to="/alarmas">Alarmas</RouterLink>
     </nav>
     <span class="usuario">{{ auth.username }} ({{ auth.rol }})</span>
     <button @click="auth.logout()">Salir</button>

@@ -61,3 +61,17 @@ Este documento junta lo que decidimos y por qué. Sirve para preparar el coloqui
 | 17 | **Usuarios de demo creados al arrancar** con la contraseña de `PASSWORD_DEMO` (por defecto `demo1234`, solo desarrollo). | Los equipos necesitan poder entrar sin cargar datos a mano, y la contraseña no queda fija en el código. No hay ABM de usuarios porque el enunciado no lo pide. |
 | 18 | **El token se guarda en `localStorage`** y se manda en el header `Authorization`. | Es lo más simple de implementar y explicar. El riesgo (XSS) se mitiga con tokens de vida corta. |
 | 19 | **Los 401/403 los arma `SecurityConfig` con el mismo JSON** que `GlobalExceptionHandler`. | Esos errores ocurren en los filtros, antes de llegar a un controller, por eso el `@RestControllerAdvice` no los ve. |
+
+## 5. Monitoreo y alarmas (parte de Fabri)
+
+| # | Decisión | Por qué |
+|---|---|---|
+| 20 | **ETA y tiempo transcurrido solo para órdenes en estado 2.** Sin caudal válido (nulo o ≤ 0), el ETA es `null`. Si la masa ya alcanzó el preset, el ETA es 0. | El enunciado pide el tiempo "solo para estado 2" y el ETA es el tiempo que falta para llenar: no tiene sentido en una orden cerrada o sin cargar. `null` evita dividir por cero. |
+| 21 | **Los valores derivados se calculan al consultar**, no se guardan. | Se deducen de datos que ya están en la cabecera de la orden, así nunca quedan desactualizados. |
+| 22 | **Filtros (estado, patente) y orden se resuelven en el backend**, con una lista blanca de columnas. | El frontend no baja lo que no muestra y no se arma un `ORDER BY` con texto del cliente. |
+| 23 | **Actualización automática por polling cada 5 s** (no WebSockets ni SSE). | Alcanza para "se actualiza sola", mantiene la API REST común y es lo más fácil de explicar. |
+| 24 | **Umbral y destinatarios se configuran por propiedades / variables de entorno** (`ALARMA_TEMPERATURA_UMBRAL`, `ALARMA_DESTINATARIOS`), no por pantalla. | El enunciado dice "configurables", no "editables en línea". Es lo mismo que ya hacemos con la frecuencia de almacenamiento. Si lo piden en pantalla, se agrega una tabla de configuración. |
+| 25 | **Alarma = dato válido con `temperatura > umbral`**. Un dato descartado no alarma. El umbral usado queda guardado en la alarma. | La cabecera solo guarda datos válidos. Guardar el umbral permite auditar la alarma aunque después cambie la configuración. |
+| 26 | **Una sola alarma pendiente por orden.** Mientras exista, no se crean más ni se mandan más mails; después de aceptarla, un nuevo dato sobre el umbral vuelve a alarmar. | Es la regla "no se vuelve a enviar hasta que un usuario autorizado la acepte". |
+| 27 | **El mail se manda después del commit** (`@TransactionalEventListener`) y **si falla solo se registra en el log**. | No debe salir un mail de una alarma que no se guardó, y un SMTP caído no debe impedir recibir los datos de carga. La alarma queda visible en la pantalla igualmente. |
+| 28 | **Aceptar una alarma: solo `OPERADOR` y `ADMIN`.** La observación es opcional; el usuario sale del token y la fecha/hora del servidor. | "Usuario autorizado" del enunciado. Tomar el usuario del token evita aceptar a nombre de otro. |
