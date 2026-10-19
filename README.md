@@ -18,9 +18,9 @@ Lo damos por logrado cuando una orden pueda recorrer todo su ciclo (recepción �
 
 | Integrante | Rama | Rol principal |
 |---|---|---|
-| Leandro Sposito | `lean` | _a definir_ |
-| Fran | `fran` | _a definir_ |
-| Fabri | `fabri` | _a definir_ |
+| Leandro Sposito | `lean` | Parcial (APIs 1 a 5); final: conciliaciones, Docker Compose, Postman y documentación |
+| Fran | `fran` | Final: seguridad (Spring Security + JWT, roles) y login en el frontend |
+| Fabri | `fabri` | Final: monitoreo en tiempo real y alarmas de temperatura por mail |
 
 > Aunque cada uno tenga un área principal, todos tenemos que entender el sistema completo (la evaluación es individual). Lo que implementa cada uno se comparte con el resto.
 
