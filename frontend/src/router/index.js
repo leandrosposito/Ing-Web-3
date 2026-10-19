@@ -2,11 +2,15 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import LoginView from '../views/LoginView.vue'
 import InicioView from '../views/InicioView.vue'
+import MonitoreoView from '../views/MonitoreoView.vue'
+import AlarmasView from '../views/AlarmasView.vue'
 
 // Una ruta por linea. Las que no tienen "publica" exigen estar logueado.
 const rutas = [
   { path: '/login', component: LoginView, meta: { publica: true } },
   { path: '/', component: InicioView },
+  { path: '/monitoreo', component: MonitoreoView },
+  { path: '/alarmas', component: AlarmasView },
   { path: '/:pagina(.*)*', redirect: '/' },
 ]
 

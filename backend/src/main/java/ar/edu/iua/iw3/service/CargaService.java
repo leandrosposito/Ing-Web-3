@@ -22,14 +22,17 @@ public class CargaService {
 
     private final OrdenService ordenService;
     private final DetalleCargaRepository detalleCargaRepository;
+    private final AlarmaService alarmaService;
 
     /** Cada cuantos segundos se guarda un registro de detalle (0 = todos). Se configura en application.properties. */
     private final long frecuenciaAlmacenamientoSegundos;
 
     public CargaService(OrdenService ordenService, DetalleCargaRepository detalleCargaRepository,
+                        AlarmaService alarmaService,
                         @Value("${app.carga.frecuencia-almacenamiento-segundos:0}") long frecuenciaAlmacenamientoSegundos) {
         this.ordenService = ordenService;
         this.detalleCargaRepository = detalleCargaRepository;
+        this.alarmaService = alarmaService;
         this.frecuenciaAlmacenamientoSegundos = frecuenciaAlmacenamientoSegundos;
     }
 
@@ -66,6 +69,7 @@ public class CargaService {
 
         LocalDateTime ahora = LocalDateTime.now();
         actualizarCabecera(orden, dato, ahora);
+        alarmaService.evaluar(orden, dato.temperatura());
 
         boolean almacenar = debeAlmacenar(orden, ahora);
         if (almacenar) {

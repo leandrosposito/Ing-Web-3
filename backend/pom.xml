@@ -43,6 +43,12 @@
 			<version>${springdoc.version}</version>
 		</dependency>
 
+		<!-- Envio de mails (alarmas de temperatura) -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-mail</artifactId>
+		</dependency>
+
 		<!-- Seguridad: Spring Security + JWT -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
