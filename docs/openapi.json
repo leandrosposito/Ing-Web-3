@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "IW3 - Ordenes de carga de gas licuado",
-    "description": "APIs de integracion con SAP, TMS (balanza) y el sistema de carga.\n\nCiclo de una orden: 1 Pendiente de pesaje inicial -> 2 Con pesaje inicial registrado\n-> 3 Cerrada para carga -> 4 Finalizada. Los estados no pueden retroceder.\n\nErrores: 400 datos invalidos, 401 password incorrecta, 404 orden inexistente,\n409 la operacion no corresponde al estado actual de la orden (o numero de orden duplicado).",
+    "description": "APIs de integracion con SAP, TMS (balanza) y el sistema de carga.\n\nCiclo de una orden: 1 Pendiente de pesaje inicial -> 2 Con pesaje inicial registrado\n-> 3 Cerrada para carga -> 4 Finalizada. Los estados no pueden retroceder.\n\nSeguridad: primero hacer POST /api/v1/auth/login y usar el token con el boton Authorize.\nRoles: SAP (alta de orden), TMS (pesajes), SISTEMA_CARGA (habilitar, detalle y cierre),\nOPERADOR (consultas y alarmas) y ADMIN (todo).\n\nErrores: 400 datos invalidos, 401 sin token o password incorrecta, 403 rol sin permiso,\n404 orden inexistente, 409 la operacion no corresponde al estado actual de la orden\n(o numero de orden duplicado).",
     "version": "v1"
   },
   "servers": [
@@ -11,14 +11,31 @@
       "description": "Generated server url"
     }
   ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
   "tags": [
+    {
+      "name": "5. Monitoreo",
+      "description": "Seguimiento de las ordenes en tiempo real"
+    },
     {
       "name": "4. Consultas",
       "description": "Consulta de ordenes, auditoria, detalle y conciliacion"
     },
     {
+      "name": "6. Alarmas",
+      "description": "Alarmas de temperatura: listado y aceptacion"
+    },
+    {
       "name": "3. Sistema de carga",
       "description": "Habilitacion, datos en tiempo real y cierre de la carga"
+    },
+    {
+      "name": "0. Autenticacion",
+      "description": "Login: devuelve el token JWT para usar en el resto de las APIs"
     },
     {
       "name": "1. SAP",
@@ -530,6 +547,130 @@
         }
       }
     },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [
+          "0. Autenticacion"
+        ],
+        "summary": "Login",
+        "description": "Con usuario y contrasena devuelve un token. Enviarlo en cada request como 'Authorization: Bearer <token>'.",
+        "operationId": "login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Faltan datos",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Usuario o contrasena incorrectos",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/alarmas/{id}/aceptar": {
+      "post": {
+        "tags": [
+          "6. Alarmas"
+        ],
+        "summary": "Aceptar una alarma",
+        "description": "Registra el usuario autenticado, la fecha/hora y la observacion. Solo roles OPERADOR y ADMIN. Despues de aceptarla, un nuevo dato sobre el umbral vuelve a generar alarma y mail.",
+        "operationId": "aceptar",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AceptarAlarmaRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlarmaResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no puede aceptar alarmas",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "La alarma no existe",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "La alarma ya estaba aceptada",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/ordenes/{numeroOrden}": {
       "get": {
         "tags": [
@@ -665,6 +806,117 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/monitoreo": {
+      "get": {
+        "tags": [
+          "5. Monitoreo"
+        ],
+        "summary": "Monitoreo de ordenes",
+        "description": "Ultimos valores de carga de cada orden, con ETA de llenado (horas) y tiempo transcurrido desde el inicio de carga (segundos). Ambos calculos solo se informan para ordenes en estado 2. El frontend lo consulta cada pocos segundos.",
+        "operationId": "monitoreo",
+        "parameters": [
+          {
+            "name": "estado",
+            "in": "query",
+            "description": "Filtro por estado",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDIENTE_PESAJE_INICIAL",
+                "CON_PESAJE_INICIAL",
+                "CERRADA_PARA_CARGA",
+                "FINALIZADA"
+              ]
+            }
+          },
+          {
+            "name": "patente",
+            "in": "query",
+            "description": "Filtro por patente (contiene el texto)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ordenarPor",
+            "in": "query",
+            "description": "numeroOrden, estado, patente, preset, masa, temperatura, densidad o caudal",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "numeroOrden"
+            }
+          },
+          {
+            "name": "direccion",
+            "in": "query",
+            "description": "asc o desc",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "asc"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MonitoreoOrdenResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/alarmas": {
+      "get": {
+        "tags": [
+          "6. Alarmas"
+        ],
+        "summary": "Listar alarmas",
+        "description": "Las mas recientes primero. Opcionalmente filtradas por estado (PENDIENTE o ACEPTADA).",
+        "operationId": "listar_1",
+        "parameters": [
+          {
+            "name": "estado",
+            "in": "query",
+            "description": "Filtro opcional por estado",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDIENTE",
+                "ACEPTADA"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AlarmaResponse"
+                  }
                 }
               }
             }
@@ -1189,6 +1441,96 @@
           }
         }
       },
+      "LoginRequest": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "minLength": 1
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "password",
+          "username"
+        ]
+      },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "rol": {
+            "type": "string",
+            "enum": [
+              "SAP",
+              "TMS",
+              "SISTEMA_CARGA",
+              "OPERADOR",
+              "ADMIN"
+            ]
+          }
+        }
+      },
+      "AceptarAlarmaRequest": {
+        "type": "object",
+        "properties": {
+          "observacion": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 0
+          }
+        }
+      },
+      "AlarmaResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "numeroOrden": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "temperatura": {
+            "type": "number",
+            "format": "double"
+          },
+          "umbral": {
+            "type": "number",
+            "format": "double"
+          },
+          "fechaHora": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "estado": {
+            "type": "string",
+            "enum": [
+              "PENDIENTE",
+              "ACEPTADA"
+            ]
+          },
+          "usuarioAceptacion": {
+            "type": "string"
+          },
+          "fechaAceptacion": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "observacion": {
+            "type": "string"
+          }
+        }
+      },
       "CambioEstadoResponse": {
         "type": "object",
         "properties": {
@@ -1246,6 +1588,73 @@
             "format": "date-time"
           }
         }
+      },
+      "MonitoreoOrdenResponse": {
+        "type": "object",
+        "properties": {
+          "numeroOrden": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "estado": {
+            "type": "string",
+            "enum": [
+              "PENDIENTE_PESAJE_INICIAL",
+              "CON_PESAJE_INICIAL",
+              "CERRADA_PARA_CARGA",
+              "FINALIZADA"
+            ]
+          },
+          "estadoNumero": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "estadoDescripcion": {
+            "type": "string"
+          },
+          "patente": {
+            "type": "string"
+          },
+          "preset": {
+            "type": "number",
+            "format": "double"
+          },
+          "ultimaMasaAcumulada": {
+            "type": "number",
+            "format": "double"
+          },
+          "ultimaTemperatura": {
+            "type": "number",
+            "format": "double"
+          },
+          "ultimaDensidad": {
+            "type": "number",
+            "format": "double"
+          },
+          "ultimoCaudal": {
+            "type": "number",
+            "format": "double"
+          },
+          "fechaUltimoDato": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "etaHoras": {
+            "type": "number",
+            "format": "double"
+          },
+          "tiempoTranscurridoSegundos": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
       }
     }
   }

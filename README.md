@@ -42,10 +42,11 @@ flowchart LR
 
 Componentes del sistema:
 
-- **Backend**: expone las APIs de integración (SAP, TMS, sistema de carga) y la lógica de negocio.
-- **Base de datos**: órdenes, entidades sincronizadas, detalle de carga, log de auditoría de estados.
+- **Backend**: expone las APIs de integración (SAP, TMS, sistema de carga) y la lógica de negocio. Protegido con login y roles (JWT).
+- **Base de datos**: órdenes, entidades sincronizadas, detalle de carga, log de auditoría de estados, usuarios y alarmas.
 - **Frontend**: login, monitoreo en tiempo real, alarmas y conciliaciones (requisito del final).
-- **Infraestructura de despliegue**: _a definir_.
+- **Mailpit**: servidor de mail de prueba que recibe las alarmas de temperatura.
+- **Despliegue**: Docker Compose levanta MySQL + backend + frontend + Mailpit con un solo comando.
 
 ---
 
@@ -69,7 +70,7 @@ stateDiagram-v2
 Reglas de los estados:
 
 - Los cambios son **secuenciales y unidireccionales**: una orden nunca vuelve a un estado anterior.
-- Cada cambio de estado queda registrado en la base (**log de auditoría**) con fecha/hora, usuario o proceso que lo hizo y observaciones si aplica.
+- Cada cambio de estado queda registrado en la base (**log de auditoría**) con fecha/hora, usuario autenticado que lo hizo y observaciones si aplica.
 
 ---
 
@@ -90,15 +91,38 @@ Reglas de los estados:
 | — | `GET` | `/api/v1/ordenes/{numeroOrden}` | Consulta | Orden completa con la cabecera de últimos valores (no expone la password). | — |
 | — | `GET` | `/api/v1/ordenes/{numeroOrden}/historial-estados` | Consulta | Log de auditoría de estados. | — |
 | — | `GET` | `/api/v1/ordenes/{numeroOrden}/detalle` | Consulta | Detalle de carga almacenado. | — |
+| — | `POST` | `/api/v1/auth/login` | Todos | Usuario y contraseña → token JWT. | — |
+| — | `GET` | `/api/v1/monitoreo` | Frontend | Últimos valores de cada orden con ETA y tiempo transcurrido. Filtros `estado` y `patente`, orden `ordenarPor` y `direccion`. | — |
+| — | `GET` | `/api/v1/alarmas?estado=` | Frontend | Lista las alarmas de temperatura. | — |
+| — | `POST` | `/api/v1/alarmas/{id}/aceptar` | Operador / Admin | Acepta una alarma registrando usuario, fecha/hora y observación. | — |
 
 Códigos de error (todos con el mismo formato JSON: `timestamp`, `status`, `error`, `mensaje`, `path`, `detalles`):
 
 | Código | Cuándo |
 |---|---|
 | `400` | Faltan datos o tienen formato inválido (Bean Validation). |
-| `401` | Contraseña de activación incorrecta. |
-| `404` | La orden no existe. |
-| `409` | La operación no corresponde al estado actual de la orden, o el número de orden ya existe. |
+| `401` | Sin token, token inválido o vencido, usuario/contraseña incorrectos, o contraseña de activación incorrecta. |
+| `403` | El rol del usuario no tiene permiso para ese endpoint. |
+| `404` | La orden o la alarma no existe. |
+| `409` | La operación no corresponde al estado actual de la orden, el número de orden ya existe, o la alarma ya estaba aceptada. |
+
+### Seguridad y roles
+
+Se hace login en `POST /api/v1/auth/login` y el token se envía en cada request como `Authorization: Bearer <token>`. Todo requiere token salvo el login y Swagger.
+
+| Rol | Usuario de demo | Qué puede hacer |
+|---|---|---|
+| `SAP` | `sap` | Crear órdenes. |
+| `TMS` | `tms` | Pesaje inicial y pesaje final. |
+| `SISTEMA_CARGA` | `carga` | Habilitar carga, enviar datos de carga y cerrar la orden. |
+| `OPERADOR` | `operador` | Consultas y aceptar alarmas. |
+| `ADMIN` | `admin` | Todo. |
+
+Cualquier usuario logueado puede hacer las consultas (`GET`). Todos los usuarios de demo tienen la contraseña `demo1234` por defecto (solo para desarrollo; se cambia con la variable `PASSWORD_DEMO`).
+
+### Alarmas de temperatura
+
+Si un dato de carga válido supera el umbral (40 °C por defecto) se crea una alarma y se envía un mail a los destinatarios configurados. No se vuelve a enviar otro mail de esa orden hasta que un operador o administrador acepte la alarma. Con Docker Compose, los mails se ven en http://localhost:8025 (Mailpit).
 
 ---
 
@@ -143,7 +167,9 @@ Códigos de error (todos con el mismo formato JSON: `timestamp`, `status`, `erro
 | **Producto** | Código externo, nombre, descripción\* |
 | **Orden** | Número de orden, camión, chofer, cliente, producto, fecha prevista, preset, tara, pesaje final, password, estado, fechas de cada evento, últimos valores de carga |
 | **Detalle de carga** | Masa acumulada, densidad, temperatura, caudal, timestamp |
-| **Log de estados** | Orden, estado anterior, estado nuevo, fecha/hora, usuario/proceso, observaciones |
+| **Log de estados** | Orden, estado anterior, estado nuevo, fecha/hora, usuario, observaciones |
+| **Usuario** | Username, hash de la contraseña (BCrypt), rol |
+| **Alarma** | Orden, temperatura, umbral, fecha/hora, estado (pendiente/aceptada), usuario, fecha y observación de la aceptación |
 
 El modelo es extensible: se pueden agregar propiedades según lo que vaya necesitando el negocio o la integración.
 
@@ -162,19 +188,21 @@ El modelo es extensible: se pueden agregar propiedades según lo que vaya necesi
 
 ### Examen final
 
-- [ ] 100 % de los endpoints implementados
-- [ ] Seguridad y roles de usuario para consumir las APIs
-- [ ] Alarma de temperatura por email
-  - Umbral y destinatarios configurables
-  - No se vuelve a enviar hasta que un usuario autorizado la acepte
-- [ ] Frontend web
-  - [ ] Login
-  - [ ] Monitoreo en tiempo real de órdenes (nro., estado, camión, preset, carga actual, última temperatura / densidad / caudal)
-  - [ ] Filtros y ordenamiento
-  - [ ] ETA de llenado: `(preset − masa acumulada) / caudal` → horas
-  - [ ] Tiempo transcurrido desde el inicio de carga (solo estado 2)
-  - [ ] Gestión de alarmas: verlas, aceptarlas, registrar usuario, fecha/hora y observación
-  - [ ] Visualización de conciliaciones (solo estado 4)
+- [x] 100 % de los endpoints implementados
+- [x] Seguridad y roles de usuario para consumir las APIs _(Spring Security + JWT)_
+- [x] Alarma de temperatura por email
+  - [x] Umbral y destinatarios configurables _(variables de entorno)_
+  - [x] No se vuelve a enviar hasta que un usuario autorizado la acepte
+- [x] Frontend web
+  - [x] Login
+  - [x] Monitoreo en tiempo real de órdenes (nro., estado, camión, preset, carga actual, última temperatura / densidad / caudal)
+  - [x] Filtros y ordenamiento
+  - [x] ETA de llenado: `(preset − masa acumulada) / caudal` → horas
+  - [x] Tiempo transcurrido desde el inicio de carga (solo estado 2)
+  - [x] Gestión de alarmas: verlas, aceptarlas, registrar usuario, fecha/hora y observación
+  - [x] Visualización de conciliaciones (solo estado 4)
+- [x] Despliegue con Docker Compose (MySQL + backend + frontend + Mailpit)
+- [x] Colección de Postman con login y el resto de los requests usando el token
 
 ---
 
@@ -182,28 +210,35 @@ El modelo es extensible: se pueden agregar propiedades según lo que vaya necesi
 
 | Capa | Tecnología |
 |---|---|
-| Backend | Java 21 + Spring Boot 4.1 (Spring Web MVC, Spring Data JPA / Hibernate, Bean Validation) |
+| Backend | Java 21 + Spring Boot 4.1 (Spring Web MVC, Spring Data JPA / Hibernate, Bean Validation, Spring Security, Spring Mail) |
+| Seguridad | Spring Security + JWT (jjwt), contraseñas con BCrypt |
 | Base de datos | MySQL 8 (H2 en memoria para pruebas rápidas y tests) |
-| Frontend | Vue o React _(a definir)_ |
+| Frontend | Vue 3 + Vite (Vue Router, Pinia) |
 | Documentación de API | OpenAPI / Swagger (springdoc-openapi) |
 | Pruebas de API | Postman |
-| Despliegue | _a definir_ |
+| Mails de prueba | Mailpit |
+| Despliegue | Docker Compose (nginx sirve el frontend) |
 
 ## Estructura del repositorio
 
 ```
-├── backend/     # API y lógica de negocio (Spring Boot)
-├── frontend/    # Interfaz web (para el final)
-├── postman/     # Colección de Postman con tests del circuito completo
-└── docs/        # Enunciado, especificación OpenAPI y decisiones de diseño
+├── backend/             # API y lógica de negocio (Spring Boot) + Dockerfile
+├── frontend/            # Interfaz web (Vue 3 + Vite) + Dockerfile y nginx.conf
+├── postman/             # Colección de Postman con login y tests del circuito completo
+├── docs/                # Enunciado, especificación OpenAPI, decisiones de diseño y explicación de cada parte
+├── docker-compose.yml   # Levanta todo el sistema con un comando
+└── .env.example         # Variables de Docker Compose (copiar como .env para cambiarlas)
 ```
+
+La explicación de cada parte del trabajo (qué se hizo, conceptos y preguntas posibles del coloquio) está en [`docs/partes/`](docs/partes): [`lean.md`](docs/partes/lean.md), [`fran.md`](docs/partes/fran.md) y [`fabri.md`](docs/partes/fabri.md).
 
 Paquetes del backend (`backend/src/main/java/ar/edu/iua/iw3`), organizados por capa:
 
 | Paquete | Qué tiene |
 |---|---|
 | `controller` | Un controller por sistema que consume la API (SAP, TMS, sistema de carga) + consultas. Solo reciben HTTP y delegan. |
-| `service` | Reglas de negocio: transiciones de estado + auditoría, sincronización de maestros, reglas de descarte, conciliación. |
+| `service` | Reglas de negocio: transiciones de estado + auditoría, sincronización de maestros, reglas de descarte, conciliación, monitoreo y alarmas. |
+| `security` | Login, JWT, filtro de autenticación y permisos por rol. |
 | `repository` | Interfaces Spring Data JPA. |
 | `model` | Entidades JPA y la máquina de estados (`EstadoOrden`). |
 | `dto` / `mapper` | Contrato de entrada/salida de la API y conversión desde las entidades. |
@@ -213,41 +248,78 @@ Las decisiones de diseño y cómo interpretamos las partes ambiguas del enunciad
 
 ## Cómo levantar el proyecto
 
-**Requisitos:** JDK 21. Maven no hace falta: el proyecto trae Maven Wrapper (`mvnw`).
+### Con Docker (recomendado)
 
-### Opción rápida (sin instalar MySQL)
+**Requisito:** Docker Desktop (o Docker + el plugin Compose). No hace falta instalar Java, Node ni MySQL.
 
-Base H2 en memoria; los datos se pierden al apagar.
+```bash
+docker compose up --build
+```
+
+La primera vez tarda unos minutos (descarga imágenes y compila). Cuando termina:
+
+| Qué | Dónde |
+|---|---|
+| Pantallas web | http://localhost:3000 |
+| Swagger (documentación de la API) | http://localhost:8080/swagger-ui.html |
+| Mails de las alarmas (Mailpit) | http://localhost:8025 |
+
+Entrar en http://localhost:3000 con `admin` / `demo1234` (ver la tabla de roles más arriba para los demás usuarios).
+
+Comandos útiles:
+
+```bash
+docker compose up --build -d   # levantar en segundo plano
+docker compose logs -f backend # ver el log del backend
+docker compose down            # apagar (los datos de MySQL se conservan)
+docker compose down -v         # apagar y borrar también los datos
+```
+
+Para cambiar la contraseña de la base, el secreto del token, el umbral de alarma, etc.: copiar `.env.example` como `.env` (en la raíz) y editarlo. **El `.env` no se sube al repo.** Sin `.env` se usan valores de desarrollo.
+
+### Sin Docker (para desarrollar)
+
+**Requisitos:** JDK 21 y Node 22 o superior. Maven no hace falta: el proyecto trae Maven Wrapper (`mvnw`).
+
+**Backend** con base H2 en memoria (sin instalar MySQL; los datos se pierden al apagar):
 
 ```bash
 cd backend
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=h2      # Windows: mvnw.cmd ...
 ```
 
-### Con MySQL
+**Backend con MySQL:** tener MySQL 8 corriendo (el schema `iw3` se crea solo), copiar `backend/.env.example` a `backend/.env`, completar usuario y contraseña, y levantar con `./mvnw spring-boot:run`. **El `.env` no se sube al repo.**
 
-1. Tener MySQL 8 corriendo. El schema `iw3` se crea solo la primera vez.
-2. Copiar `backend/.env.example` a `backend/.env` y completar el usuario y la contraseña. **El `.env` no se sube al repo.** También se pueden usar variables de entorno con los mismos nombres.
-3. Levantar:
+**Frontend** (en otra terminal; reenvía `/api` al backend en el puerto 8080):
 
-   ```bash
-   cd backend
-   ./mvnw spring-boot:run
-   ```
+```bash
+cd frontend
+npm install
+npm run dev        # http://localhost:5173
+```
 
-### Configuración
+Para ver los mails de las alarmas sin Docker Compose: `docker run -d -p 8025:8025 -p 1025:1025 axllent/mailpit`.
+
+### Configuración del backend
 
 | Variable | Default | Para qué |
 |---|---|---|
 | `DB_URL` | `jdbc:mysql://localhost:3306/iw3?...` | URL de la base |
 | `DB_USER` / `DB_PASSWORD` | `root` / _(vacío)_ | Credenciales |
 | `FRECUENCIA_DETALLE_SEGUNDOS` | `0` | Cada cuántos segundos se guarda un registro de detalle (`0` = todos) |
+| `JWT_SECRET` | _(valor de desarrollo)_ | Secreto para firmar los tokens (mínimo 32 caracteres) |
+| `JWT_EXPIRACION_MINUTOS` | `120` | Duración del token |
+| `PASSWORD_DEMO` | `demo1234` | Contraseña de los usuarios de demo |
+| `ALARMA_TEMPERATURA_UMBRAL` | `40` | Grados a partir de los cuales se genera la alarma |
+| `ALARMA_DESTINATARIOS` | `operaciones@planta.local` | Mails que reciben la alarma (separados por coma) |
+| `MAIL_HOST` / `MAIL_PORT` | `localhost` / `1025` | Servidor de mail (por defecto Mailpit) |
 
 ### Probar
 
-- **Swagger UI:** http://localhost:8080/swagger-ui.html
-- **Postman:** importar `postman/IW3-ordenes-de-carga.postman_collection.json` y correrla con el **Collection Runner** (los requests van encadenados: cada uno guarda variables que usa el siguiente). Desde consola: `npx newman run postman/IW3-ordenes-de-carga.postman_collection.json`
-- **Tests automáticos:** `cd backend && ./mvnw test` (tests unitarios de la máquina de estados y de las reglas de descarte, más un test de integración del circuito completo).
+- **Swagger UI:** http://localhost:8080/swagger-ui.html. Hacer login en `POST /api/v1/auth/login`, copiar el token y pegarlo en el botón **Authorize**.
+- **Postman:** importar `postman/IW3-ordenes-de-carga.postman_collection.json` y correrla con el **Collection Runner** (los requests van encadenados). El primero hace login y guarda el token; el resto lo usa solo. Desde consola: `npx newman run postman/IW3-ordenes-de-carga.postman_collection.json`
+- **Tests del backend:** `cd backend && ./mvnw test` (unitarios, de seguridad y de integración del circuito, el monitoreo y las alarmas).
+- **Tests del frontend:** `cd frontend && npm test`. Para comprobar que compila: `npm run build`.
 
 ---
 
