@@ -20,10 +20,7 @@ import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.List;
 
-/**
- * Logica de negocio de la orden y sus cambios de estado.
- * Todos los cambios de estado pasan por {@link #cambiarEstado}, que valida la transicion y la audita.
- */
+/** Reglas de la orden. Todo cambio de estado pasa por cambiarEstado(), que valida la transicion y la audita. */
 @Service
 @RequiredArgsConstructor
 public class OrdenService {
@@ -34,12 +31,7 @@ public class OrdenService {
     private final SincronizacionService sincronizacionService;
     private final SecureRandom random = new SecureRandom();
 
-    // ------------------------------------------------------------------ Punto 1
-
-    /**
-     * Alta de la orden enviada por SAP. Sincroniza las entidades asociadas y crea la orden en estado 1.
-     * Es una sola transaccion: si algo falla no queda ni la orden ni los maestros a medio guardar.
-     */
+    /** Es una sola transaccion: si algo falla no queda ni la orden ni los maestros a medio guardar. */
     @Transactional
     public OrdenResponse crear(OrdenSapRequest req) {
         if (ordenRepository.existsByNumeroOrden(req.numeroOrden())) {
@@ -58,16 +50,13 @@ public class OrdenService {
         orden.setEstado(EstadoOrden.PENDIENTE_PESAJE_INICIAL);
         ordenRepository.save(orden);
 
-        // El alta tambien queda en la auditoria (estado anterior = null)
+        // el alta tambien se audita (estado anterior null)
         cambioEstadoRepository.save(new CambioEstado(orden, null, EstadoOrden.PENDIENTE_PESAJE_INICIAL,
                 UsuarioActual.nombre(), "Orden recibida desde SAP"));
 
         return OrdenMapper.toResponse(orden);
     }
 
-    // ------------------------------------------------------------------ Punto 2
-
-    /** Registra la tara, genera la contrasena de activacion y pasa la orden a estado 2. */
     @Transactional
     public PesajeInicialResponse registrarPesajeInicial(Long numeroOrden, PesajeRequest req) {
         Orden orden = obtenerParaActualizar(numeroOrden);
@@ -81,14 +70,11 @@ public class OrdenService {
                 orden.getFechaPesajeInicial(), orden.getPassword());
     }
 
-    /** Entero aleatorio de 5 digitos (10000 a 99999). SecureRandom porque es una credencial. */
+    /** 5 digitos (10000 a 99999). SecureRandom porque es una credencial. */
     private Integer generarPassword() {
         return 10000 + random.nextInt(90000);
     }
 
-    // ------------------------------------------------------------------ Punto 4
-
-    /** Cierra la orden (estado 3): a partir de aca se rechazan nuevos datos de carga. */
     @Transactional
     public OrdenResponse cerrar(Long numeroOrden, CierreRequest req) {
         Orden orden = obtenerParaActualizar(numeroOrden);
@@ -97,9 +83,6 @@ public class OrdenService {
         return OrdenMapper.toResponse(orden);
     }
 
-    // ------------------------------------------------------------------ Punto 5
-
-    /** Registra el pesaje final, pasa la orden a estado 4 y devuelve la conciliacion. */
     @Transactional
     public ConciliacionResponse registrarPesajeFinal(Long numeroOrden, PesajeRequest req) {
         Orden orden = obtenerParaActualizar(numeroOrden);
@@ -109,7 +92,6 @@ public class OrdenService {
         return calcularConciliacion(orden);
     }
 
-    /** La conciliacion se puede pedir en cualquier momento, pero solo para ordenes finalizadas. */
     @Transactional(readOnly = true)
     public ConciliacionResponse obtenerConciliacion(Long numeroOrden) {
         Orden orden = obtener(numeroOrden);
@@ -117,10 +99,7 @@ public class OrdenService {
         return calcularConciliacion(orden);
     }
 
-    /**
-     * No se guarda: se calcula a partir de datos que ya estan en la base, asi nunca queda desactualizada.
-     * Producto cargado = ultima masa acumulada (0 si nunca llego un dato valido).
-     */
+    /** No se guarda: se calcula con datos que ya estan en la base, asi nunca queda desactualizada. */
     private ConciliacionResponse calcularConciliacion(Orden orden) {
         double productoCargado = orden.getUltimaMasaAcumulada() == null ? 0.0 : orden.getUltimaMasaAcumulada();
         double netoPorBalanza = orden.getPesajeFinal() - orden.getPesajeInicial();
@@ -137,8 +116,6 @@ public class OrdenService {
                 promedios.densidad(),
                 promedios.caudal());
     }
-
-    // ------------------------------------------------------------------ Consultas
 
     @Transactional(readOnly = true)
     public OrdenResponse buscar(Long numeroOrden) {
@@ -161,24 +138,18 @@ public class OrdenService {
                 .toList();
     }
 
-    // ------------------------------------------------------------------ Helpers compartidos
-
-    /** Busca la orden o lanza 404. */
     public Orden obtener(Long numeroOrden) {
         return ordenRepository.findByNumeroOrden(numeroOrden)
                 .orElseThrow(() -> noEncontrada(numeroOrden));
     }
 
-    /** Busca la orden bloqueando la fila hasta el fin de la transaccion (para operaciones que la modifican). */
+    /** Igual que obtener() pero bloquea la fila hasta el fin de la transaccion (ver OrdenRepository). */
     public Orden obtenerParaActualizar(Long numeroOrden) {
         return ordenRepository.findByNumeroOrdenParaActualizar(numeroOrden)
                 .orElseThrow(() -> noEncontrada(numeroOrden));
     }
 
-    /**
-     * Unico punto donde cambia el estado de una orden: valida que sea el estado siguiente
-     * y registra el cambio en la auditoria con el usuario autenticado (dentro de la misma transaccion del que lo llama).
-     */
+    /** Valida que sea el estado siguiente y lo registra en la auditoria, en la transaccion del que lo llama. */
     void cambiarEstado(Orden orden, EstadoOrden nuevo, String observaciones) {
         EstadoOrden actual = orden.getEstado();
         if (!actual.puedePasarA(nuevo)) {

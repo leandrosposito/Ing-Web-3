@@ -4,19 +4,13 @@ import ar.edu.iua.iw3.dto.DetalleCargaRequest;
 
 import java.util.Optional;
 
-/**
- * Reglas de validez de un dato de carga (punto 3). Es una clase sin dependencias para poder testearla sola.
- * Se descarta el dato si:
- * - caudal <= 0
- * - masa acumulada <= 0 o menor que la anterior (igual se acepta: la bomba puede no haber avanzado)
- * - densidad fuera de (0, 1]  (el enunciado define ese rango; un valor fuera de el no es valido)
- */
+/** Cuando se descarta un dato de carga (sin dependencias, para testearla sola). */
 public final class ReglasDetalleCarga {
 
     private ReglasDetalleCarga() {
     }
 
-    /** @return el motivo de descarte, o vacio si el dato es valido. */
+    /** Devuelve el motivo de descarte, o vacio si el dato es valido. Una masa igual a la anterior se acepta. */
     public static Optional<String> motivoDescarte(DetalleCargaRequest dato, Double masaAnterior) {
         if (dato.caudal() <= 0) {
             return Optional.of("Caudal debe ser mayor a 0");
