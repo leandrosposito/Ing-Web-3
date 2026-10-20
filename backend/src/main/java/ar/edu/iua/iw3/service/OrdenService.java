@@ -124,10 +124,7 @@ public class OrdenService {
 
     @Transactional(readOnly = true)
     public List<OrdenResponse> listar(EstadoOrden estado) {
-        List<Orden> ordenes = (estado == null)
-                ? ordenRepository.findAllByOrderByNumeroOrdenAsc()
-                : ordenRepository.findByEstadoOrderByNumeroOrdenAsc(estado);
-        return ordenes.stream().map(OrdenMapper::toResponse).toList();
+        return ordenRepository.listar(estado).stream().map(OrdenMapper::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
