@@ -21,24 +21,21 @@ final class TestAuth {
     private TestAuth() {
     }
 
-    /** Header listo para usar: "Bearer <token>". El token se pide una sola vez por usuario. */
+    /** "Bearer <token>"; el token se pide una sola vez por usuario. */
     static String bearer(MockMvc mvc, String username) {
         return "Bearer " + TOKENS.computeIfAbsent(username, u -> login(mvc, u));
     }
 
-    /** POST con JSON autenticado como ese usuario de demo. */
     static ResultActions post(MockMvc mvc, String usuario, String url, String json) throws Exception {
         return mvc.perform(MockMvcRequestBuilders.post(url).contentType(MediaType.APPLICATION_JSON).content(json)
                 .header(HttpHeaders.AUTHORIZATION, bearer(mvc, usuario)));
     }
 
-    /** PUT con JSON autenticado como ese usuario de demo. */
     static ResultActions put(MockMvc mvc, String usuario, String url, String json) throws Exception {
         return mvc.perform(MockMvcRequestBuilders.put(url).contentType(MediaType.APPLICATION_JSON).content(json)
                 .header(HttpHeaders.AUTHORIZATION, bearer(mvc, usuario)));
     }
 
-    /** GET autenticado como ese usuario de demo. */
     static ResultActions get(MockMvc mvc, String usuario, String url) throws Exception {
         return mvc.perform(MockMvcRequestBuilders.get(url).header(HttpHeaders.AUTHORIZATION, bearer(mvc, usuario)));
     }
@@ -59,7 +56,6 @@ final class TestAuth {
                 .andExpect(status().isOk());
     }
 
-    /** Envia un dato de carga como el sistema de carga. */
     static ResultActions dato(MockMvc mvc, long numeroOrden, double masa, double temperatura, double caudal) throws Exception {
         return post(mvc, "carga", "/api/v1/ordenes/" + numeroOrden + "/detalle",
                 "{\"masaAcumulada\":%s,\"densidad\":0.5,\"temperatura\":%s,\"caudal\":%s}".formatted(masa, temperatura, caudal));
