@@ -5,11 +5,11 @@ import ar.edu.iua.iw3.dto.AlarmaResponse;
 import ar.edu.iua.iw3.exception.ConflictoException;
 import ar.edu.iua.iw3.exception.RecursoNoEncontradoException;
 import ar.edu.iua.iw3.model.Alarma;
+import ar.edu.iua.iw3.model.ConfiguracionAlarma;
 import ar.edu.iua.iw3.model.EstadoAlarma;
 import ar.edu.iua.iw3.model.Orden;
 import ar.edu.iua.iw3.repository.AlarmaRepository;
 import ar.edu.iua.iw3.security.UsuarioActual;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,14 +24,14 @@ public class AlarmaService {
     private final AlarmaRepository alarmaRepository;
     private final ApplicationEventPublisher publisher;
 
-    /** Temperatura (en grados) por encima de la cual se alarma. Se configura en application.properties. */
-    private final double umbral;
+    /** Umbral y destinatarios vigentes (se editan desde el sistema, por eso se leen en cada evaluacion). */
+    private final ConfiguracionAlarmaService configuracion;
 
     public AlarmaService(AlarmaRepository alarmaRepository, ApplicationEventPublisher publisher,
-                         @Value("${app.alarma.temperatura-umbral}") double umbral) {
+                         ConfiguracionAlarmaService configuracion) {
         this.alarmaRepository = alarmaRepository;
         this.publisher = publisher;
-        this.umbral = umbral;
+        this.configuracion = configuracion;
     }
 
     /**
@@ -41,6 +41,8 @@ public class AlarmaService {
      */
     @Transactional
     public void evaluar(Orden orden, double temperatura) {
+        ConfiguracionAlarma config = configuracion.obtener();
+        double umbral = config.getTemperaturaUmbral();
         if (temperatura <= umbral) {
             return;
         }
@@ -48,7 +50,8 @@ public class AlarmaService {
             return; // ya se aviso y nadie la acepto: no se vuelve a mandar
         }
         Alarma alarma = alarmaRepository.save(new Alarma(orden, temperatura, umbral));
-        publisher.publishEvent(new AlarmaCreada(alarma.getId(), orden.getNumeroOrden(), temperatura, umbral));
+        publisher.publishEvent(new AlarmaCreada(alarma.getId(), orden.getNumeroOrden(), temperatura, umbral,
+                List.of(config.getDestinatarios().split(","))));
     }
 
     @Transactional(readOnly = true)

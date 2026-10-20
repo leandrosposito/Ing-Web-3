@@ -1126,6 +1126,126 @@
               }
             }
           ]
+        },
+        {
+          "name": "25 [Alarmas] Ver configuracion",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/alarmas/configuracion",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alarmas",
+                "configuracion"
+              ]
+            },
+            "description": "Umbral y destinatarios vigentes. Solo rol ADMIN (el usuario por defecto de la coleccion es admin). Guarda los valores en variables para que el siguiente request los reenvie sin cambiarlos."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const c = pm.response.json();",
+                  "pm.test(\"Tiene umbral y destinatarios\", () => { pm.expect(c.temperaturaUmbral).to.be.a(\"number\"); pm.expect(c.destinatarios).to.be.an(\"array\").and.not.empty; });",
+                  "pm.collectionVariables.set(\"umbralActual\", c.temperaturaUmbral);",
+                  "pm.collectionVariables.set(\"destinatariosActual\", JSON.stringify(c.destinatarios));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "26 [Alarmas] Cambiar configuracion",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/alarmas/configuracion",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alarmas",
+                "configuracion"
+              ]
+            },
+            "description": "Reemplaza umbral y destinatarios. Rige desde el proximo dato de carga, sin reiniciar. Aca reenvia los valores que devolvio el request 25, asi la coleccion no deja la configuracion cambiada: editar el body para probar otros valores.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"temperaturaUmbral\": {{umbralActual}},\n  \"destinatarios\": {{destinatariosActual}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Registra quien la cambio\", () => pm.expect(pm.response.json().actualizadoPor).to.eql(pm.collectionVariables.get(\"usuario\")));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "27 [Alarmas] Configuracion invalida (400)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/alarmas/configuracion",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alarmas",
+                "configuracion"
+              ]
+            },
+            "description": "Un mail mal escrito o un umbral fuera de rango (-50 a 200) se rechazan con 400.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"temperaturaUmbral\": 40,\n  \"destinatarios\": [\"esto-no-es-un-mail\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
         }
       ]
     }

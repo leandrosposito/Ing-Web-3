@@ -37,12 +37,62 @@ async function aceptar(alarma) {
   }
 }
 
+// ---- Configuracion (solo ADMIN): umbral y destinatarios de los mails ----
+const esAdmin = auth.tieneRol('ADMIN')
+const config = ref({ temperaturaUmbral: null, destinatarios: '' }) // destinatarios: texto separado por coma
+const configMensaje = ref('')
+const configError = ref('')
+
+async function cargarConfig() {
+  try {
+    const c = await api('/api/v1/alarmas/configuracion')
+    config.value = { temperaturaUmbral: c.temperaturaUmbral, destinatarios: c.destinatarios.join(', ') }
+  } catch (e) {
+    configError.value = e.message
+  }
+}
+
+async function guardarConfig() {
+  configMensaje.value = ''
+  configError.value = ''
+  try {
+    const c = await api('/api/v1/alarmas/configuracion', {
+      method: 'PUT',
+      body: {
+        temperaturaUmbral: Number(config.value.temperaturaUmbral),
+        destinatarios: config.value.destinatarios.split(',').map((m) => m.trim()).filter(Boolean),
+      },
+    })
+    config.value = { temperaturaUmbral: c.temperaturaUmbral, destinatarios: c.destinatarios.join(', ') }
+    configMensaje.value = 'Configuración guardada. Rige desde el próximo dato de carga.'
+  } catch (e) {
+    configError.value = e.message
+  }
+}
+
 watch(estado, cargar)
 usePolling(cargar, 10000)
+if (esAdmin) cargarConfig()
 </script>
 
 <template>
   <h1>Alarmas de temperatura</h1>
+
+  <!-- Solo ADMIN: el backend tambien lo exige (403 para el resto) -->
+  <form v-if="esAdmin" class="config" @submit.prevent="guardarConfig">
+    <h2>Configuración</h2>
+    <label>
+      Umbral de temperatura (°C)
+      <input v-model="config.temperaturaUmbral" type="number" step="0.1" min="-50" max="200" required />
+    </label>
+    <label class="destinatarios">
+      Destinatarios (mails separados por coma)
+      <input v-model="config.destinatarios" type="text" required />
+    </label>
+    <button type="submit">Guardar</button>
+    <p v-if="configMensaje" class="ok">{{ configMensaje }}</p>
+    <p v-if="configError" class="error">{{ configError }}</p>
+  </form>
 
   <div class="filtros">
     <label>
@@ -102,4 +152,11 @@ usePolling(cargar, 10000)
 .filtros { display: flex; gap: 1rem; margin-bottom: 1rem; }
 .filtros label { display: flex; flex-direction: column; gap: 0.25rem; }
 td input { margin-right: 0.5rem; width: 60%; }
+.config { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end; margin-bottom: 1.5rem; padding: 1rem; background: #f4f5f7; border-radius: 6px; }
+.config h2 { width: 100%; margin: 0; font-size: 1.1rem; }
+.config label { display: flex; flex-direction: column; gap: 0.25rem; }
+.config .destinatarios { flex: 1; min-width: 16rem; }
+.config .destinatarios input { width: 100%; margin: 0; }
+.config .ok { width: 100%; margin: 0; color: #1b7f3b; }
+.config .error { width: 100%; margin: 0; }
 </style>
