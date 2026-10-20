@@ -12,14 +12,18 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.after;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -44,7 +48,7 @@ class AlarmasTest {
 
         TestAuth.dato(mvc, 8001, 1000, 40, 3000).andExpect(status().isOk()); // 40 no supera 40
 
-        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+        verify(mailSender, after(300).never()).send(any(SimpleMailMessage.class));
         TestAuth.get(mvc, "operador", ALARMAS).andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.numeroOrden==8001)]").isEmpty());
     }
@@ -57,14 +61,14 @@ class AlarmasTest {
         // 1. Primer dato sobre el umbral: alarma pendiente + 1 mail a los dos destinatarios
         TestAuth.dato(mvc, 8002, 1000, 45.5, 3000).andExpect(jsonPath("$.aceptado").value(true));
         ArgumentCaptor<SimpleMailMessage> mail = ArgumentCaptor.forClass(SimpleMailMessage.class);
-        verify(mailSender, times(1)).send(mail.capture());
+        verify(mailSender, timeout(2000).times(1)).send(mail.capture()); // el mail sale en otro hilo (@Async)
         assertArrayEquals(new String[]{"uno@test.local", "dos@test.local"}, mail.getValue().getTo());
         assertTrue(mail.getValue().getText().contains("8002"));
 
         // 2. Mas datos sobre el umbral: no hay otra alarma ni otro mail
         TestAuth.dato(mvc, 8002, 2000, 50, 3000);
         TestAuth.dato(mvc, 8002, 3000, 55, 3000);
-        verify(mailSender, times(1)).send(any(SimpleMailMessage.class));
+        verify(mailSender, after(300).times(1)).send(any(SimpleMailMessage.class));
 
         String pendientes = TestAuth.get(mvc, "operador", ALARMAS + "?estado=PENDIENTE")
                 .andExpect(jsonPath("$[?(@.numeroOrden==8002)]", hasSize(1)))
@@ -88,7 +92,7 @@ class AlarmasTest {
 
         // 6. Despues de aceptada, un nuevo dato sobre el umbral vuelve a alarmar (2do mail)
         TestAuth.dato(mvc, 8002, 4000, 60, 3000);
-        verify(mailSender, times(2)).send(any(SimpleMailMessage.class));
+        verify(mailSender, timeout(2000).times(2)).send(any(SimpleMailMessage.class));
         TestAuth.get(mvc, "operador", ALARMAS + "?estado=PENDIENTE")
                 .andExpect(jsonPath("$[?(@.numeroOrden==8002)]", hasSize(1)));
     }
@@ -115,6 +119,25 @@ class AlarmasTest {
         // caudal 0: se descarta aunque la temperatura sea altisima
         TestAuth.dato(mvc, 8004, 1000, 90, 0).andExpect(jsonPath("$.aceptado").value(false));
 
-        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+        verify(mailSender, after(300).never()).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    void elMailNoDemoraLaRespuestaDelDato() throws Exception {
+        reset(mailSender);
+        CountDownLatch mailEnviado = new CountDownLatch(1);
+        doAnswer(inv -> {
+            Thread.sleep(1500); // SMTP lento
+            mailEnviado.countDown();
+            return null;
+        }).when(mailSender).send(any(SimpleMailMessage.class));
+        TestAuth.ordenEnCarga(mvc, 8005, "ALA005", 10000);
+
+        long inicio = System.nanoTime();
+        TestAuth.dato(mvc, 8005, 1000, 80, 3000).andExpect(jsonPath("$.aceptado").value(true));
+        long ms = (System.nanoTime() - inicio) / 1_000_000;
+
+        assertTrue(ms < 1000, "el dato tardo " + ms + " ms: estaria esperando al mail");
+        assertTrue(mailEnviado.await(5, TimeUnit.SECONDS), "el mail igual tiene que salir");
     }
 }

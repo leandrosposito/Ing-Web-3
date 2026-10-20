@@ -1,6 +1,7 @@
 package ar.edu.iua.iw3.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.BatchSize;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -31,6 +32,7 @@ public class Camion {
     /** Cisternado: una fila por cisterna. orphanRemoval borra las que SAP deja de mandar. */
     @OneToMany(mappedBy = "camion", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("numero ASC")
+    @BatchSize(size = 50) // al listar ordenes, las cisternas de varios camiones se traen en una sola consulta
     private List<Cisterna> cisternas = new ArrayList<>();
 
     /** El total no se guarda: se calcula sumando las cisternas para que nunca quede desactualizado. */
