@@ -1,9 +1,6 @@
 import { onMounted, onUnmounted } from 'vue'
 
-/**
- * Ejecuta 'accion' apenas se muestra la pantalla y despues cada 'cadaMs' milisegundos.
- * Al salir de la pantalla se detiene. Asi se "actualiza sola" (polling).
- */
+/** Ejecuta accion al mostrar la pantalla y despues cada cadaMs milisegundos (polling); se detiene al salir. */
 export function usePolling(accion, cadaMs) {
   let temporizador = null
 

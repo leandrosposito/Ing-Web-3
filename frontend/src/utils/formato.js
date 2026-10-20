@@ -1,4 +1,4 @@
-/** Funciones para mostrar los datos en las pantallas. Todas devuelven "-" si no hay dato. */
+// Todas devuelven "-" si no hay dato
 
 const SIN_DATO = '-'
 
@@ -20,13 +20,12 @@ export function formatearEta(horas) {
   return h > 0 ? `${h} h ${m} min` : `${m} min`
 }
 
-/** Numero con 'decimales' decimales (por defecto 1). */
 export function formatearNumero(valor, decimales = 1) {
   if (valor === null || valor === undefined) return SIN_DATO
   return Number(valor).toFixed(decimales)
 }
 
-/** "2026-11-10T08:30:00" -> fecha y hora en formato local. */
+/** "2026-11-10T08:30:00" -> fecha y hora local */
 export function formatearFechaHora(iso) {
   if (!iso) return SIN_DATO
   return new Date(iso).toLocaleString('es-AR')
