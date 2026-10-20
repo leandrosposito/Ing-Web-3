@@ -38,7 +38,7 @@ public class Alarma {
     @Column(nullable = false, length = 20)
     private EstadoAlarma estado;
 
-    // ---- Se completan al aceptarla ----
+    // se completan al aceptarla
     @Column(length = 50)
     private String usuarioAceptacion;
 

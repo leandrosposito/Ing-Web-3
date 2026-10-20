@@ -11,11 +11,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
- * Manda el mail de la alarma. Se ejecuta DESPUES del commit: asi nunca sale un mail de una alarma
- * que despues no se pudo guardar. Si el mail falla, solo se registra en el log: la alarma ya esta
- * guardada y se ve en la pantalla de alarmas, y no se pierde el dato de carga.
- * Ademas es @Async: el SMTP corre en otro hilo, asi un servidor de mail lento no demora la respuesta
- * al sistema de carga, que manda datos todo el tiempo.
+ * Manda el mail de la alarma despues del commit (nunca sale el mail de una alarma que no se guardo) y en otro hilo
+ * (@Async), asi un SMTP lento no demora la respuesta al sistema de carga. Si falla, solo se registra en el log:
+ * la alarma ya esta guardada y se ve en la pantalla.
  */
 @Component
 public class NotificadorAlarmas {

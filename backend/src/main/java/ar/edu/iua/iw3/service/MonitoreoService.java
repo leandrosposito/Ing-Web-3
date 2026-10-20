@@ -13,15 +13,12 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
-/** Datos para la pantalla de monitoreo: filtra y ordena en la base y agrega el ETA y el tiempo transcurrido. */
+/** Filas de la pantalla de monitoreo: filtra y ordena en la base y agrega el ETA y el tiempo transcurrido. */
 @Service
 @RequiredArgsConstructor
 public class MonitoreoService {
 
-    /**
-     * Columnas por las que se puede ordenar. El valor de la URL se traduce a una propiedad de la entidad:
-     * asi nunca se arma un ORDER BY con texto que mando el cliente.
-     */
+    /** Lista blanca: el valor de la URL se traduce a una propiedad, asi nunca se arma un ORDER BY con texto del cliente. */
     private static final Map<String, String> COLUMNAS_ORDENABLES = Map.of(
             "numeroOrden", "numeroOrden",
             "estado", "estado",
@@ -34,12 +31,6 @@ public class MonitoreoService {
 
     private final OrdenRepository ordenRepository;
 
-    /**
-     * @param estado     filtro por estado (opcional)
-     * @param patente    filtro por patente, contiene el texto sin distinguir mayusculas (opcional)
-     * @param ordenarPor una clave de COLUMNAS_ORDENABLES (por defecto numeroOrden)
-     * @param descendente true para orden descendente
-     */
     @Transactional(readOnly = true)
     public List<MonitoreoOrdenResponse> listar(EstadoOrden estado, String patente, String ordenarPor, boolean descendente) {
         String propiedad = COLUMNAS_ORDENABLES.getOrDefault(ordenarPor, "numeroOrden");
