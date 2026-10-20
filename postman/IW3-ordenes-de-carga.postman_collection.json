@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "IW3 - Ordenes de carga de gas licuado",
-    "description": "Circuito completo de una orden (puntos 1 a 5) con casos de error, login y consultas del final.\n\nCorrer con el Collection Runner (o newman) en orden: el request 00 hace login y guarda el token; el resto lo usa solo. Cada request guarda variables (numeroOrden, password, masa) que usan los siguientes.\n\nVariables de la coleccion: baseUrl (cambiarla si el backend no esta en localhost:8080), usuario y passwordDemo (admin / demo1234 por defecto; con admin se puede usar toda la API).",
+    "description": "Circuito completo de una orden (puntos 1 a 5) con casos de error, roles, alarmas y consultas del final.\n\nCorrer con el Collection Runner (o newman) en orden: los requests 00 hacen login con cada usuario de demo (sap, tms, carga, operador, admin) y guardan un token por usuario (tokenSap, tokenTms, tokenCarga, tokenOperador, tokenAdmin). Cada request usa el usuario que le corresponde: sap crea ordenes, tms hace los pesajes, carga habilita/envia datos/cierra, operador consulta y acepta alarmas, admin solo cambia la configuracion de alarmas. Cada request guarda variables (numeroOrden, password, masa, alarmaId) que usan los siguientes.\n\nVariables de la coleccion: baseUrl (cambiarla si el backend no esta en localhost:8080) y passwordDemo (demo1234 por defecto).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -9,7 +9,7 @@
       "name": "Circuito completo de una orden",
       "item": [
         {
-          "name": "00 [Auth] Login",
+          "name": "00 [Auth] Login sap",
           "request": {
             "method": "POST",
             "header": [
@@ -28,10 +28,10 @@
                 "login"
               ]
             },
-            "description": "Devuelve el token JWT y lo guarda en la variable {{token}}. El resto de los requests lo usa solo (auth Bearer a nivel coleccion). Con el usuario admin se pueden usar todos los endpoints; para probar un rol, cambiar la variable 'usuario' (sap, tms, carga, operador).",
+            "description": "Devuelve el token JWT del usuario sap y lo guarda en la variable {{tokenSap}}.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"{{usuario}}\",\n  \"password\": \"{{passwordDemo}}\"\n}",
+              "raw": "{\n  \"username\": \"sap\",\n  \"password\": \"{{passwordDemo}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -50,7 +50,199 @@
                 "exec": [
                   "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
                   "pm.test(\"Devuelve un token\", () => pm.expect(pm.response.json().token).to.be.a(\"string\").and.not.empty);",
-                  "pm.collectionVariables.set(\"token\", pm.response.json().token);"
+                  "pm.collectionVariables.set(\"tokenSap\", pm.response.json().token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "00 [Auth] Login tms",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Devuelve el token JWT del usuario tms y lo guarda en la variable {{tokenTms}}.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"tms\",\n  \"password\": \"{{passwordDemo}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Devuelve un token\", () => pm.expect(pm.response.json().token).to.be.a(\"string\").and.not.empty);",
+                  "pm.collectionVariables.set(\"tokenTms\", pm.response.json().token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "00 [Auth] Login carga",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Devuelve el token JWT del usuario carga y lo guarda en la variable {{tokenCarga}}.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"carga\",\n  \"password\": \"{{passwordDemo}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Devuelve un token\", () => pm.expect(pm.response.json().token).to.be.a(\"string\").and.not.empty);",
+                  "pm.collectionVariables.set(\"tokenCarga\", pm.response.json().token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "00 [Auth] Login operador",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Devuelve el token JWT del usuario operador y lo guarda en la variable {{tokenOperador}}.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"operador\",\n  \"password\": \"{{passwordDemo}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Devuelve un token\", () => pm.expect(pm.response.json().token).to.be.a(\"string\").and.not.empty);",
+                  "pm.collectionVariables.set(\"tokenOperador\", pm.response.json().token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "00 [Auth] Login admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Devuelve el token JWT del usuario admin y lo guarda en la variable {{tokenAdmin}}.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"{{passwordDemo}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Devuelve un token\", () => pm.expect(pm.response.json().token).to.be.a(\"string\").and.not.empty);",
+                  "pm.collectionVariables.set(\"tokenAdmin\", pm.response.json().token);"
                 ]
               }
             }
@@ -79,7 +271,7 @@
             "description": "Usuario o contrasena incorrectos: 401 y no se devuelve token.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"{{usuario}}\",\n  \"password\": \"incorrecta\"\n}",
+              "raw": "{\n  \"username\": \"sap\",\n  \"password\": \"incorrecta\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -162,6 +354,16 @@
                   "language": "json"
                 }
               }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenSap}}",
+                  "type": "string"
+                }
+              ]
             }
           },
           "event": [
@@ -220,6 +422,16 @@
                   "language": "json"
                 }
               }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenSap}}",
+                  "type": "string"
+                }
+              ]
             }
           },
           "event": [
@@ -262,6 +474,16 @@
                   "language": "json"
                 }
               }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenSap}}",
+                  "type": "string"
+                }
+              ]
             }
           },
           "event": [
@@ -272,6 +494,59 @@
                 "exec": [
                   "pm.test(\"Status 400\", () => pm.response.to.have.status(400));",
                   "pm.test(\"Lista los campos invalidos\", () => pm.expect(pm.response.json().detalles).to.not.be.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "03b [TMS] Crear orden con el rol equivocado (403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ordenes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ordenes"
+              ]
+            },
+            "description": "Ejemplo de autorizacion: el usuario tms solo puede hacer pesajes; crear ordenes es de sap. Responde 403 y no crea nada.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"numeroOrden\": {{numeroOrden}},\n  \"camion\": {\n    \"codigoExterno\": \"CAM-001\",\n    \"patente\": \"AB123CD\",\n    \"descripcion\": \"Scania cisterna doble\",\n    \"cisternas\": [\n      { \"numero\": 1, \"capacidadLitros\": 10000 },\n      { \"numero\": 2, \"capacidadLitros\": 5000 }\n    ]\n  },\n  \"chofer\": { \"codigoExterno\": \"CHO-001\", \"nombre\": \"Juan\", \"apellido\": \"Perez\", \"documento\": \"30123456\" },\n  \"cliente\": { \"codigoExterno\": \"CLI-001\", \"razonSocial\": \"Gas del Centro S.A.\", \"contacto\": \"compras@gasdelcentro.com\" },\n  \"producto\": { \"codigoExterno\": \"PRO-001\", \"nombre\": \"Propano\", \"descripcion\": \"Gas licuado de petroleo\" },\n  \"fechaPrevistaCarga\": \"2026-11-10T08:00:00\",\n  \"preset\": 20000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTms}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 403\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"Formato de error\", () => pm.expect(pm.response.json().status).to.eql(403));"
                 ]
               }
             }
@@ -292,7 +567,17 @@
                 "{{numeroOrden}}"
               ]
             },
-            "description": ""
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenOperador}}",
+                  "type": "string"
+                }
+              ]
+            }
           },
           "event": [
             {
@@ -337,6 +622,16 @@
                   "language": "json"
                 }
               }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCarga}}",
+                  "type": "string"
+                }
+              ]
             }
           },
           "event": [
@@ -381,6 +676,16 @@
                   "language": "json"
                 }
               }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTms}}",
+                  "type": "string"
+                }
+              ]
             }
           },
           "event": [
@@ -431,6 +736,16 @@
                   "language": "json"
                 }
               }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTms}}",
+                  "type": "string"
+                }
+              ]
             }
           },
           "event": [
@@ -475,6 +790,16 @@
                   "language": "json"
                 }
               }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCarga}}",
+                  "type": "string"
+                }
+              ]
             }
           },
           "event": [
@@ -529,6 +854,16 @@
                   "language": "json"
                 }
               }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCarga}}",
+                  "type": "string"
+                }
+              ]
             }
           },
           "event": [
@@ -574,6 +909,16 @@
                   "language": "json"
                 }
               }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCarga}}",
+                  "type": "string"
+                }
+              ]
             }
           },
           "event": [
@@ -635,6 +980,16 @@
                   "language": "json"
                 }
               }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCarga}}",
+                  "type": "string"
+                }
+              ]
             }
           },
           "event": [
@@ -680,6 +1035,16 @@
                   "language": "json"
                 }
               }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCarga}}",
+                  "type": "string"
+                }
+              ]
             }
           },
           "event": [
@@ -710,7 +1075,17 @@
                 "{{numeroOrden}}"
               ]
             },
-            "description": ""
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenOperador}}",
+                  "type": "string"
+                }
+              ]
+            }
           },
           "event": [
             {
@@ -720,6 +1095,231 @@
                 "exec": [
                   "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
                   "pm.test(\"Ultima masa = ultimo dato valido\", () => pm.expect(pm.response.json().ultimaMasaAcumulada).to.eql(Number(pm.collectionVariables.get(\"masa\"))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "13b [Carga] Dato con temperatura sobre el umbral",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ordenes/{{numeroOrden}}/detalle",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ordenes",
+                "{{numeroOrden}}",
+                "detalle"
+              ]
+            },
+            "description": "Temperatura de 200 grados: supera cualquier umbral razonable, asi que dispara la alarma de la orden (y el mail).",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"masaAcumulada\": {{masa}}, \"densidad\": 0.52, \"temperatura\": 200, \"caudal\": 60000 }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCarga}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const masa = Number(pm.collectionVariables.get(\"masa\") || 0) + 1000;",
+                  "pm.collectionVariables.set(\"masa\", masa);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Dato aceptado\", () => pm.expect(pm.response.json().aceptado).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "13c [Consulta] La alarma aparece pendiente",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/alarmas?estado=PENDIENTE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alarmas"
+              ],
+              "query": [
+                {
+                  "key": "estado",
+                  "value": "PENDIENTE"
+                }
+              ]
+            },
+            "description": "Con el operador: busca la alarma de esta orden entre las pendientes y guarda su id.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenOperador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const n = Number(pm.collectionVariables.get(\"numeroOrden\"));",
+                  "const a = pm.response.json().find(x => x.numeroOrden === n);",
+                  "pm.test(\"Hay una alarma pendiente de la orden\", () => { pm.expect(a).to.not.be.undefined; pm.expect(a.estado).to.eql(\"PENDIENTE\"); });",
+                  "pm.test(\"La temperatura supera el umbral\", () => pm.expect(a.temperatura).to.be.above(a.umbral));",
+                  "pm.collectionVariables.set(\"alarmaId\", a.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "13d [Consulta] Aceptar la alarma (operador)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/alarmas/{{alarmaId}}/aceptar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alarmas",
+                "{{alarmaId}}",
+                "aceptar"
+              ]
+            },
+            "description": "El operador acepta la alarma: queda registrado quien, cuando y la observacion.",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"observacion\": \"Se revisa la temperatura del producto\" }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenOperador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const a = pm.response.json();",
+                  "pm.test(\"Queda aceptada por operador\", () => { pm.expect(a.estado).to.eql(\"ACEPTADA\"); pm.expect(a.usuarioAceptacion).to.eql(\"operador\"); });",
+                  "pm.test(\"Registra fecha y observacion\", () => { pm.expect(a.fechaAceptacion).to.be.a(\"string\"); pm.expect(a.observacion).to.not.be.empty; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "13e [Consulta] Aceptar de nuevo (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/alarmas/{{alarmaId}}/aceptar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alarmas",
+                "{{alarmaId}}",
+                "aceptar"
+              ]
+            },
+            "description": "Una alarma ya aceptada no se puede aceptar dos veces.",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"observacion\": \"Otra vez\" }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenOperador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 409\", () => pm.response.to.have.status(409));"
                 ]
               }
             }
@@ -741,7 +1341,17 @@
                 "conciliacion"
               ]
             },
-            "description": ""
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenOperador}}",
+                  "type": "string"
+                }
+              ]
+            }
           },
           "event": [
             {
@@ -785,6 +1395,16 @@
                   "language": "json"
                 }
               }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCarga}}",
+                  "type": "string"
+                }
+              ]
             }
           },
           "event": [
@@ -830,6 +1450,16 @@
                   "language": "json"
                 }
               }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCarga}}",
+                  "type": "string"
+                }
+              ]
             }
           },
           "event": [
@@ -874,6 +1504,16 @@
                   "language": "json"
                 }
               }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTms}}",
+                  "type": "string"
+                }
+              ]
             }
           },
           "event": [
@@ -911,7 +1551,17 @@
                 "conciliacion"
               ]
             },
-            "description": ""
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenOperador}}",
+                  "type": "string"
+                }
+              ]
+            }
           },
           "event": [
             {
@@ -941,7 +1591,17 @@
                 "historial-estados"
               ]
             },
-            "description": ""
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenOperador}}",
+                  "type": "string"
+                }
+              ]
+            }
           },
           "event": [
             {
@@ -954,6 +1614,9 @@
                   "const h = pm.response.json();",
                   "pm.test(\"4 cambios de estado, en orden\", () => {",
                   "    pm.expect(h.map(x => x.estadoNuevo)).to.eql([\"PENDIENTE_PESAJE_INICIAL\", \"CON_PESAJE_INICIAL\", \"CERRADA_PARA_CARGA\", \"FINALIZADA\"]);",
+                  "});",
+                  "pm.test(\"Cada transicion la hizo su sistema: sap, tms, carga, tms\", () => {",
+                  "    pm.expect(h.map(x => x.usuario)).to.eql([\"sap\", \"tms\", \"carga\", \"tms\"]);",
                   "});"
                 ]
               }
@@ -976,7 +1639,17 @@
                 "detalle"
               ]
             },
-            "description": ""
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenOperador}}",
+                  "type": "string"
+                }
+              ]
+            }
           },
           "event": [
             {
@@ -1011,7 +1684,17 @@
                 }
               ]
             },
-            "description": ""
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenOperador}}",
+                  "type": "string"
+                }
+              ]
+            }
           },
           "event": [
             {
@@ -1041,7 +1724,17 @@
                 "1"
               ]
             },
-            "description": ""
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenOperador}}",
+                  "type": "string"
+                }
+              ]
+            }
           },
           "event": [
             {
@@ -1083,7 +1776,17 @@
                 }
               ]
             },
-            "description": "Ultimos valores de carga con ETA y tiempo transcurrido (solo para ordenes en estado 2)."
+            "description": "Ultimos valores de carga con ETA y tiempo transcurrido (solo para ordenes en estado 2).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenOperador}}",
+                  "type": "string"
+                }
+              ]
+            }
           },
           "event": [
             {
@@ -1112,7 +1815,17 @@
                 "alarmas"
               ]
             },
-            "description": "Alarmas de temperatura, las mas recientes primero. Se generan al enviar un dato con temperatura mayor al umbral (40 por defecto); para aceptar una: POST {{baseUrl}}/alarmas/{id}/aceptar con rol OPERADOR o ADMIN."
+            "description": "Alarmas de temperatura, las mas recientes primero. Se generan al enviar un dato con temperatura mayor al umbral (40 por defecto); para aceptar una: POST {{baseUrl}}/alarmas/{id}/aceptar con rol OPERADOR o ADMIN.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenOperador}}",
+                  "type": "string"
+                }
+              ]
+            }
           },
           "event": [
             {
@@ -1142,7 +1855,17 @@
                 "configuracion"
               ]
             },
-            "description": "Umbral y destinatarios vigentes. Solo rol ADMIN (el usuario por defecto de la coleccion es admin). Guarda los valores en variables para que el siguiente request los reenvie sin cambiarlos."
+            "description": "Umbral y destinatarios vigentes. Solo rol ADMIN (el usuario por defecto de la coleccion es admin). Guarda los valores en variables para que el siguiente request los reenvie sin cambiarlos.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdmin}}",
+                  "type": "string"
+                }
+              ]
+            }
           },
           "event": [
             {
@@ -1189,6 +1912,16 @@
                   "language": "json"
                 }
               }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdmin}}",
+                  "type": "string"
+                }
+              ]
             }
           },
           "event": [
@@ -1198,7 +1931,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
-                  "pm.test(\"Registra quien la cambio\", () => pm.expect(pm.response.json().actualizadoPor).to.eql(pm.collectionVariables.get(\"usuario\")));"
+                  "pm.test(\"Registra quien la cambio\", () => pm.expect(pm.response.json().actualizadoPor).to.eql(\"admin\"));"
                 ]
               }
             }
@@ -1233,6 +1966,16 @@
                   "language": "json"
                 }
               }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdmin}}",
+                  "type": "string"
+                }
+              ]
             }
           },
           "event": [
@@ -1280,15 +2023,31 @@
       "value": ""
     },
     {
-      "key": "usuario",
-      "value": "admin"
-    },
-    {
       "key": "passwordDemo",
       "value": "demo1234"
     },
     {
-      "key": "token",
+      "key": "tokenSap",
+      "value": ""
+    },
+    {
+      "key": "tokenTms",
+      "value": ""
+    },
+    {
+      "key": "tokenCarga",
+      "value": ""
+    },
+    {
+      "key": "tokenOperador",
+      "value": ""
+    },
+    {
+      "key": "tokenAdmin",
+      "value": ""
+    },
+    {
+      "key": "alarmaId",
       "value": ""
     }
   ],
@@ -1297,7 +2056,7 @@
     "bearer": [
       {
         "key": "token",
-        "value": "{{token}}",
+        "value": "{{tokenOperador}}",
         "type": "string"
       }
     ]

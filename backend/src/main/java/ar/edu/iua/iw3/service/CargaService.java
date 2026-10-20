@@ -11,7 +11,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -105,13 +104,11 @@ public class CargaService {
         orden.setFechaUltimoDato(ahora);
     }
 
-    /** Se guarda si la frecuencia es 0, si es el primer detalle, o si desde el ultimo guardado paso el tiempo configurado. */
+    /** Busca cuando se guardo el ultimo detalle y le pregunta a la regla pura si este dato se guarda. */
     private boolean debeAlmacenar(Orden orden, LocalDateTime ahora) {
-        if (frecuenciaAlmacenamientoSegundos <= 0) {
-            return true;
-        }
-        return detalleCargaRepository.findTopByOrdenOrderByFechaHoraDesc(orden)
-                .map(ultimo -> Duration.between(ultimo.getFechaHora(), ahora).toSeconds() >= frecuenciaAlmacenamientoSegundos)
-                .orElse(true);
+        LocalDateTime ultimoGuardado = detalleCargaRepository.findTopByOrdenOrderByFechaHoraDesc(orden)
+                .map(DetalleCarga::getFechaHora)
+                .orElse(null);
+        return ReglasAlmacenamiento.debeAlmacenar(ultimoGuardado, ahora, frecuenciaAlmacenamientoSegundos);
     }
 }

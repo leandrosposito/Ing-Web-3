@@ -153,16 +153,19 @@ El archivo `.env` (con contraseñas reales) está en el `.gitignore`. Se sube so
 Archivo: `postman/IW3-ordenes-de-carga.postman_collection.json`.
 
 ### Qué cambió
-- **`00 [Auth] Login`**: hace `POST /auth/login` con el usuario de la variable `usuario` (por defecto `admin`) y **guarda el token** en la variable `token`.
-- **Autenticación a nivel colección**: se configuró una sola vez en la colección (*Authorization → Bearer Token → `{{token}}`*). Todos los requests la **heredan**, así que no hubo que tocar ninguno.
+- **Un login por usuario de demo** (`00 [Auth] Login sap`, `tms`, `carga`, `operador`, `admin`): cada uno hace `POST /auth/login` y **guarda su token** en una variable de colección (`tokenSap`, `tokenTms`, `tokenCarga`, `tokenOperador`, `tokenAdmin`).
+- **Cada request usa el token del sistema que corresponde** (pestaña *Authorization* de cada request, Bearer `{{tokenXxx}}`): `sap` crea órdenes, `tms` hace pesaje inicial y final, `carga` habilita, envía datos y cierra, `operador` consulta y acepta alarmas, `admin` solo cambia la configuración de alarmas. Si un permiso estuviera mal configurado, el request correspondiente fallaría.
+- **Ejemplo de 403** (`03b`): `tms` intenta crear una orden; la API responde 403 porque eso es de `sap`.
+- **Flujo de alarmas** (`13b` a `13e`): `carga` manda un dato con temperatura de 200 °C → `operador` ve la alarma pendiente de esa orden (`13c`) → la acepta (`13d`, queda `operador`, fecha y observación) → aceptarla de nuevo da 409 (`13e`).
+- **Historial de estados** (`19`): además del orden de los estados, verifica que los usuarios sean `sap`, `tms`, `carga`, `tms`, o sea que la auditoría guarda el usuario autenticado.
 - Dos requests de contraste: `00b` (login con contraseña incorrecta → 401) y `00c` (consulta sin token → 401).
-- Al final, dos consultas nuevas: `23` Monitoreo y `24` Alarmas.
-- Las variables `usuario` y `passwordDemo` se pueden cambiar. Con `admin` se puede usar toda la API; para probar los permisos, cambiar `usuario` a `tms`, `sap`, `carga` u `operador`.
+- Al final, consultas de Monitoreo y Alarmas, y la configuración de alarmas con `admin`.
+- La variable `passwordDemo` se puede cambiar. Ya no hace falta la variable `usuario`: cada request trae el suyo.
 
 ### Cómo se ejecuta
 - En Postman: importar el archivo y correr con el **Collection Runner** (el orden importa: el login va primero).
 - Por consola: `npx newman run postman/IW3-ordenes-de-carga.postman_collection.json`.
-- Resultado verificado contra el sistema levantado con Docker Compose: **31 requests, 59 aserciones, 0 fallos**.
+- Resultado verificado contra el backend levantado con el perfil H2: **43 requests, 84 aserciones, 0 fallos**.
 
 ---
 
@@ -230,7 +233,7 @@ Es un servidor de correo de prueba: recibe los mails por SMTP y los muestra en u
 El `.env` está en el `.gitignore` y solo se sube `.env.example`. Los valores por defecto del compose son de desarrollo y se pueden pisar con variables de entorno. En producción habría que definir `DB_PASSWORD`, `JWT_SECRET` y `PASSWORD_DEMO` con valores propios.
 
 **¿Cómo funciona el login en Postman?**
-Un request hace el login y un script de test guarda el token en una variable de la colección (`pm.collectionVariables.set("token", ...)`). La autenticación *Bearer* está configurada una sola vez a nivel colección, con `{{token}}`, y todos los requests la heredan.
+Hay un request de login por usuario de demo y un script de test que guarda cada token en su variable de la colección (`pm.collectionVariables.set("tokenTms", ...)`). Cada request tiene configurada la autenticación *Bearer* con el token del usuario que le corresponde (`{{tokenTms}}` para el pesaje, etc.), así la colección prueba también los permisos por rol.
 
 **¿Por qué la conciliación no se guarda en la base?**
 Se puede calcular siempre a partir de datos que ya están (tara, pesaje final, última masa y los promedios del detalle). Si se guardara, habría que mantenerla sincronizada. Calculándola no puede quedar desactualizada.
@@ -240,3 +243,12 @@ Neto por balanza (pesaje final − tara) menos el producto cargado que midió el
 
 **¿Por qué solo se listan órdenes en estado 4?**
 Porque la conciliación solo existe cuando hay pesaje final. El backend lo exige (responde 409 si la orden no está finalizada) y la pantalla pide solamente las finalizadas con `?estado=FINALIZADA`.
+
+**¿Cómo se prueba que los roles funcionan?**
+Con la colección de Postman: cada request corre con el usuario que debería poder hacerlo (si los permisos estuvieran mal, fallaría) y hay un caso negativo, `tms` intentando crear una orden, que debe dar 403. Además el historial de estados debe mostrar `sap`, `tms`, `carga`, `tms`.
+
+**¿Cómo se testea la frecuencia de almacenamiento?**
+La regla está en una función pura, `ReglasAlmacenamiento.debeAlmacenar(ultimoGuardado, ahora, frecuencia)`: no usa base ni reloj, recibe todo por parámetro. El test simula un dato por segundo durante 60 s con frecuencia de 10 s y comprueba que se guardan 6 (segundos 0, 10, 20, 30, 40 y 50), igual que el ejemplo del enunciado.
+
+**¿Por qué sacar esa regla del service?**
+Para poder probarla con horas fijas sin levantar Spring ni esperar segundos reales. `CargaService` solo busca cuándo se guardó el último detalle y delega la decisión.
