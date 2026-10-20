@@ -7,10 +7,7 @@ import lombok.Setter;
 
 import java.time.LocalDateTime;
 
-/**
- * Configuracion de las alarmas de temperatura. Es una tabla de UNA sola fila (id fijo = 1).
- * Los valores iniciales salen de application.properties; despues se editan desde el sistema.
- */
+/** Tabla de una sola fila (id fijo = 1). */
 @Entity
 @Table(name = "configuracion_alarma")
 @Getter
@@ -23,7 +20,6 @@ public class ConfiguracionAlarma {
     @Id
     private Long id = ID;
 
-    /** Se alarma cuando la temperatura supera este valor (grados). */
     @Column(nullable = false)
     private Double temperaturaUmbral;
 

@@ -10,10 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
-/**
- * Umbral y destinatarios de las alarmas, guardados en la base para poder cambiarlos sin reiniciar.
- * La primera vez (tabla vacia) se crea con los valores de application.properties / variables de entorno.
- */
+/** Umbral y destinatarios, en la base para cambiarlos sin reiniciar. La primera vez salen de application.properties. */
 @Service
 public class ConfiguracionAlarmaService {
 
@@ -29,7 +26,6 @@ public class ConfiguracionAlarmaService {
         this.destinatariosIniciales = destinatariosIniciales;
     }
 
-    /** Devuelve la configuracion vigente; si todavia no existe la crea con los valores iniciales. */
     @Transactional
     public ConfiguracionAlarma obtener() {
         return repository.findById(ConfiguracionAlarma.ID)

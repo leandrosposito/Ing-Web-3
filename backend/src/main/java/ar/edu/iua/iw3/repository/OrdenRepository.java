@@ -25,11 +25,7 @@ public interface OrdenRepository extends JpaRepository<Orden, Long> {
             order by o.numeroOrden asc""")
     List<Orden> listar(EstadoOrden estado);
 
-    /**
-     * Consulta del monitoreo: el estado es opcional (null = todos) y la patente filtra por "contiene" sin
-     * distinguir mayusculas (texto vacio = todas). El orden llega en el parametro Sort.
-     * Con "join fetch" trae las entidades asociadas en la misma consulta (evita el N+1).
-     */
+    /** Estado null = todos; la patente filtra por "contiene" sin distinguir mayusculas (vacio = todas). */
     @Query("""
             select o from Orden o
             join fetch o.camion c join fetch o.chofer join fetch o.cliente join fetch o.producto
@@ -38,9 +34,8 @@ public interface OrdenRepository extends JpaRepository<Orden, Long> {
     List<Orden> buscarParaMonitoreo(EstadoOrden estado, String patente, Sort sort);
 
     /**
-     * Igual que findByNumeroOrden pero bloquea la fila (SELECT ... FOR UPDATE) hasta que termine la transaccion.
-     * Lo usamos en las operaciones que modifican la orden: si llegan dos datos de carga a la vez,
-     * o un dato y el cierre, se procesan de a uno y no se pisan.
+     * Igual que findByNumeroOrden pero bloquea la fila (SELECT ... FOR UPDATE) hasta el fin de la transaccion:
+     * si llegan dos datos de carga a la vez, o un dato y el cierre, se procesan de a uno y no se pisan.
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select o from Orden o where o.numeroOrden = :numeroOrden")
