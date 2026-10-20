@@ -73,7 +73,7 @@ List<Orden> buscarParaMonitoreo(EstadoOrden estado, String patente, Sort sort);
 
 Se aplicó a `buscarParaMonitoreo` (monitoreo) y a las dos consultas del listado de órdenes (`findAllByOrderByNumeroOrdenAsc` y `findByEstadoOrderByNumeroOrdenAsc`). El listado además muestra la capacidad total del camión, que sale de sus cisternas (una colección); como no conviene meterla en el mismo `join fetch` (multiplicaría las filas), se le puso `@BatchSize(size = 50)` a `Camion.cisternas`: las cisternas de muchos camiones se traen en **una** consulta en lugar de una por camión.
 
-**Cómo lo comprobamos.** `ConsultasSinN1Test` activa las estadísticas de Hibernate, crea 4 órdenes y cuenta las consultas SQL: el monitoreo hace **1** y el listado **2 como máximo**, sin importar cuántas órdenes haya. Probado sin el `join fetch`, el mismo test falla: el monitoreo hacía 12 consultas y el listado 9 para solo 4 órdenes.
+**Cómo se comprobó.** Se contaron las consultas SQL con 4 órdenes: sin el `join fetch` el monitoreo hacía 12 y el listado 9; con el `join fetch` hace 1 y 2 como máximo, sin importar cuántas órdenes haya. Para verlo a mano se puede poner `spring.jpa.show-sql=true` y llamar a `GET /api/v1/monitoreo`.
 
 ---
 
@@ -83,7 +83,7 @@ Se aplicó a `buscarParaMonitoreo` (monitoreo) y a las dos consultas del listado
 
 ```powershell
 cd backend
-.\mvnw.cmd test     # 48 tests en total. Los de Fabri: CalculosMonitoreoTest, MonitoreoTest, AlarmasTest, ConfiguracionAlarmaTest (con el mail simulado) y ConsultasSinN1Test
+.\mvnw.cmd test     # 46 tests en total. Los de Fabri: CalculosMonitoreoTest, MonitoreoTest, AlarmasTest y ConfiguracionAlarmaTest (con el mail simulado)
 
 cd ..\frontend
 npm test            # 16 tests (incluye AlarmasView.test.js: el formulario de configuración)
