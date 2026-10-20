@@ -1,9 +1,6 @@
 package ar.edu.iua.iw3.model;
 
-/**
- * Maquina de estados de la orden.
- * Las transiciones son secuenciales y unidireccionales: solo se puede pasar al estado siguiente.
- */
+/** Estados de la orden: solo se puede pasar al estado siguiente, nunca saltear ni retroceder. */
 public enum EstadoOrden {
 
     PENDIENTE_PESAJE_INICIAL(1, "Pendiente de pesaje inicial"),
@@ -27,7 +24,7 @@ public enum EstadoOrden {
         return descripcion;
     }
 
-    /** True solo si {@code nuevo} es exactamente el estado siguiente (no se saltean ni se retroceden estados). */
+
     public boolean puedePasarA(EstadoOrden nuevo) {
         return nuevo != null && nuevo.numero == this.numero + 1;
     }

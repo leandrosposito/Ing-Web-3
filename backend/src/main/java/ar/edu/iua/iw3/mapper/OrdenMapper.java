@@ -16,10 +16,7 @@ import ar.edu.iua.iw3.model.DetalleCarga;
 import ar.edu.iua.iw3.model.Orden;
 import ar.edu.iua.iw3.model.Producto;
 
-/**
- * Convierte entidades a DTOs de respuesta. Lo hacemos a mano (sin librerias) porque son pocas clases
- * y asi queda explicito que campos se exponen (por ejemplo, la password NO sale en OrdenResponse).
- */
+/** Entidad a DTO a mano, para que quede explicito que se expone (la password no sale en OrdenResponse). */
 public final class OrdenMapper {
 
     private OrdenMapper() {
