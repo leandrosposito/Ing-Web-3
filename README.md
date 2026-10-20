@@ -290,6 +290,8 @@ cd backend
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=h2      # Windows: mvnw.cmd ...
 ```
 
+Con este perfil también queda disponible la consola de la base en http://localhost:8080/h2-console (JDBC URL `jdbc:h2:mem:iw3`, usuario `sa`, sin contraseña). **Existe solo con el perfil `h2`**: con MySQL (o en un servidor) está cerrada.
+
 **Backend con MySQL:** tener MySQL 8 corriendo (el schema `iw3` se crea solo), copiar `backend/.env.example` a `backend/.env`, completar usuario y contraseña, y levantar con `./mvnw spring-boot:run`. **El `.env` no se sube al repo.**
 
 **Frontend** (en otra terminal; reenvía `/api` al backend en el puerto 8080):

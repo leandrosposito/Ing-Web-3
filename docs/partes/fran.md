@@ -14,6 +14,7 @@ Rama `fran`. Agrega autenticación con JWT, roles por endpoint, auditoría con e
 | `security/JwtService.java` | Genera el JWT (HS256, con usuario y rol) y lo valida. |
 | `security/JwtAuthFilter.java` | En cada request lee `Authorization: Bearer ...` y deja al usuario autenticado. |
 | `security/SecurityConfig.java` | Qué rol puede llamar a cada endpoint, API sin sesión, respuestas 401/403 en JSON. |
+| `security/H2ConsoleSecurityConfig.java` | Cadena de seguridad propia para `/h2-console`, **solo con el perfil `h2`**: sin token (la consola tiene su propio login de base), sin CSRF y con `frameOptions` en `sameOrigin` porque la consola se dibuja con frames. Sin el perfil la clase no existe y la consola no está habilitada. |
 | `security/UsuariosDemo.java` | Crea un usuario por rol al arrancar si la tabla está vacía. |
 | `security/UsuarioActual.java` | Devuelve el nombre del usuario autenticado. |
 | `service/OrdenService.java` | `cambiarEstado()` guarda en la auditoría al usuario autenticado. |
@@ -128,3 +129,9 @@ Para este sistema alcanza: cada integración externa hace una sola cosa. Con var
 
 **¿Se puede cambiar quién accede a un endpoint?**
 Sí, en una sola línea de `SecurityConfig`. Los tests de `SeguridadTest` fallarían si cambia un permiso sin querer.
+
+**¿Por qué la consola de H2 solo está con el perfil `h2`?**
+La consola es una puerta directa a la base: permite leer y modificar todo sin pasar por la API ni por los roles. Es útil para desarrollar con la base en memoria, pero en un servidor sería un agujero. Por eso `spring.h2.console.enabled=true` está solo en `application-h2.properties`, y su regla de seguridad (`H2ConsoleSecurityConfig`) lleva `@Profile("h2")`. Sin ese perfil, `/h2-console` responde 401 sin token y 404 con token. Con el perfil, se abre sin JWT porque el navegador la usa directamente, y necesita `frameOptions` en `sameOrigin` (el resto de la API deja el valor por defecto, que prohíbe los frames). `H2ConsolaCerradaTest` y `H2ConsolaPerfilH2Test` lo comprueban.
+
+**¿Qué pasa si se usa en un servidor el `JWT_SECRET` por defecto?**
+El secreto por defecto (`clave-solo-para-desarrollo-cambiar-en-produccion-123456`) está escrito en `application.properties`, o sea que es público: cualquiera que lea el repositorio lo conoce. Como el JWT se firma con HS256 (clave compartida), quien conozca el secreto puede **fabricar sus propios tokens** con cualquier usuario y rol (por ejemplo `ADMIN`) y el backend los aceptaría como válidos, sin conocer ninguna contraseña. Es la ruptura total de la autenticación. Por eso en un servidor hay que definir `JWT_SECRET` con un valor largo y aleatorio (mínimo 32 caracteres) que no esté en el repo; el mismo cuidado vale para `PASSWORD_DEMO`, porque los usuarios de demo se crean con una contraseña conocida (`demo1234`). Cambiar el secreto invalida todos los tokens emitidos, así que los usuarios tienen que volver a loguearse.
