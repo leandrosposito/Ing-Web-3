@@ -47,6 +47,68 @@
     }
   ],
   "paths": {
+    "/api/v1/alarmas/configuracion": {
+      "get": {
+        "tags": [
+          "6. Alarmas"
+        ],
+        "summary": "Ver la configuracion de alarmas",
+        "description": "Umbral de temperatura y destinatarios de los mails vigentes. Solo rol ADMIN.",
+        "operationId": "verConfiguracion",
+        "responses": {
+          "403": {
+            "description": "Solo ADMIN",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "6. Alarmas"
+        ],
+        "summary": "Cambiar la configuracion de alarmas",
+        "description": "Reemplaza el umbral y los destinatarios. Rige desde el proximo dato de carga, sin reiniciar. Solo rol ADMIN.",
+        "operationId": "cambiarConfiguracion",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfiguracionAlarmaRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Umbral fuera de rango o mails invalidos",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Solo ADMIN",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/ordenes": {
       "get": {
         "tags": [
@@ -927,6 +989,59 @@
   },
   "components": {
     "schemas": {
+      "ConfiguracionAlarmaRequest": {
+        "type": "object",
+        "properties": {
+          "temperaturaUmbral": {
+            "type": "number",
+            "format": "double",
+            "maximum": 200,
+            "minimum": -50
+          },
+          "destinatarios": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "email",
+              "minLength": 1
+            },
+            "maxItems": 10,
+            "minItems": 0
+          }
+        },
+        "required": [
+          "destinatarios",
+          "temperaturaUmbral"
+        ]
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "error": {
+            "type": "string"
+          },
+          "mensaje": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "detalles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "CamionDto": {
         "type": "object",
         "properties": {
@@ -1104,34 +1219,6 @@
           "codigoExterno",
           "nombre"
         ]
-      },
-      "ErrorResponse": {
-        "type": "object",
-        "properties": {
-          "timestamp": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "status": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "error": {
-            "type": "string"
-          },
-          "mensaje": {
-            "type": "string"
-          },
-          "path": {
-            "type": "string"
-          },
-          "detalles": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        }
       },
       "CamionResponse": {
         "type": "object",

@@ -95,6 +95,8 @@ Reglas de los estados:
 | — | `GET` | `/api/v1/monitoreo` | Frontend | Últimos valores de cada orden con ETA y tiempo transcurrido. Filtros `estado` y `patente`, orden `ordenarPor` y `direccion`. | — |
 | — | `GET` | `/api/v1/alarmas?estado=` | Frontend | Lista las alarmas de temperatura. | — |
 | — | `POST` | `/api/v1/alarmas/{id}/aceptar` | Operador / Admin | Acepta una alarma registrando usuario, fecha/hora y observación. | — |
+| — | `GET` | `/api/v1/alarmas/configuracion` | Admin | Umbral de temperatura y destinatarios vigentes. | — |
+| — | `PUT` | `/api/v1/alarmas/configuracion` | Admin | Cambia umbral y destinatarios (rige desde el próximo dato, sin reiniciar). | — |
 
 Códigos de error (todos con el mismo formato JSON: `timestamp`, `status`, `error`, `mensaje`, `path`, `detalles`):
 
@@ -122,7 +124,7 @@ Cualquier usuario logueado puede hacer las consultas (`GET`). Todos los usuarios
 
 ### Alarmas de temperatura
 
-Si un dato de carga válido supera el umbral (40 °C por defecto) se crea una alarma y se envía un mail a los destinatarios configurados. No se vuelve a enviar otro mail de esa orden hasta que un operador o administrador acepte la alarma. Con Docker Compose, los mails se ven en http://localhost:8025 (Mailpit).
+Si un dato de carga válido supera el umbral (40 °C por defecto) se crea una alarma y se envía un mail a los destinatarios configurados. El umbral y los destinatarios se guardan en la base y los edita el `ADMIN` desde el formulario de la pantalla **Alarmas** (o con `PUT /api/v1/alarmas/configuracion`), sin reiniciar; las variables `ALARMA_TEMPERATURA_UMBRAL` y `ALARMA_DESTINATARIOS` son solo el valor inicial. No se vuelve a enviar otro mail de esa orden hasta que un operador o administrador acepte la alarma. Con Docker Compose, los mails se ven en http://localhost:8025 (Mailpit).
 
 ---
 
@@ -191,7 +193,7 @@ El modelo es extensible: se pueden agregar propiedades según lo que vaya necesi
 - [x] 100 % de los endpoints implementados
 - [x] Seguridad y roles de usuario para consumir las APIs _(Spring Security + JWT)_
 - [x] Alarma de temperatura por email
-  - [x] Umbral y destinatarios configurables _(variables de entorno)_
+  - [x] Umbral y destinatarios configurables _(guardados en la base, editables por el admin desde la pantalla de alarmas)_
   - [x] No se vuelve a enviar hasta que un usuario autorizado la acepte
 - [x] Frontend web
   - [x] Login
@@ -275,7 +277,7 @@ docker compose down            # apagar (los datos de MySQL se conservan)
 docker compose down -v         # apagar y borrar también los datos
 ```
 
-Para cambiar la contraseña de la base, el secreto del token, el umbral de alarma, etc.: copiar `.env.example` como `.env` (en la raíz) y editarlo. **El `.env` no se sube al repo.** Sin `.env` se usan valores de desarrollo.
+Para cambiar la contraseña de la base, el secreto del token, el valor inicial del umbral de alarma, etc.: copiar `.env.example` como `.env` (en la raíz) y editarlo. **El `.env` no se sube al repo.** Sin `.env` se usan valores de desarrollo.
 
 ### Sin Docker (para desarrollar)
 
@@ -310,8 +312,8 @@ Para ver los mails de las alarmas sin Docker Compose: `docker run -d -p 8025:802
 | `JWT_SECRET` | _(valor de desarrollo)_ | Secreto para firmar los tokens (mínimo 32 caracteres) |
 | `JWT_EXPIRACION_MINUTOS` | `120` | Duración del token |
 | `PASSWORD_DEMO` | `demo1234` | Contraseña de los usuarios de demo |
-| `ALARMA_TEMPERATURA_UMBRAL` | `40` | Grados a partir de los cuales se genera la alarma |
-| `ALARMA_DESTINATARIOS` | `operaciones@planta.local` | Mails que reciben la alarma (separados por coma) |
+| `ALARMA_TEMPERATURA_UMBRAL` | `40` | **Valor inicial** del umbral de alarma (grados). Después se cambia desde el sistema |
+| `ALARMA_DESTINATARIOS` | `operaciones@planta.local` | **Valor inicial** de los mails que reciben la alarma (separados por coma). Después se cambian desde el sistema |
 | `MAIL_HOST` / `MAIL_PORT` | `localhost` / `1025` | Servidor de mail (por defecto Mailpit) |
 
 ### Probar
