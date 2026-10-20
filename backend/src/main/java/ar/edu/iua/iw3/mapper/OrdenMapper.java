@@ -1,7 +1,20 @@
 package ar.edu.iua.iw3.mapper;
 
-import ar.edu.iua.iw3.dto.*;
-import ar.edu.iua.iw3.model.*;
+import ar.edu.iua.iw3.dto.CambioEstadoResponse;
+import ar.edu.iua.iw3.dto.CamionResponse;
+import ar.edu.iua.iw3.dto.ChoferDto;
+import ar.edu.iua.iw3.dto.CisternaDto;
+import ar.edu.iua.iw3.dto.ClienteDto;
+import ar.edu.iua.iw3.dto.DetalleCargaResponse;
+import ar.edu.iua.iw3.dto.OrdenResponse;
+import ar.edu.iua.iw3.dto.ProductoDto;
+import ar.edu.iua.iw3.model.CambioEstado;
+import ar.edu.iua.iw3.model.Camion;
+import ar.edu.iua.iw3.model.Chofer;
+import ar.edu.iua.iw3.model.Cliente;
+import ar.edu.iua.iw3.model.DetalleCarga;
+import ar.edu.iua.iw3.model.Orden;
+import ar.edu.iua.iw3.model.Producto;
 
 /**
  * Convierte entidades a DTOs de respuesta. Lo hacemos a mano (sin librerias) porque son pocas clases
