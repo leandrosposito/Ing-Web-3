@@ -338,14 +338,18 @@ Para ver los mails de las alarmas sin Docker Compose: `docker run -d -p 8025:802
 
 ### Flujo de trabajo
 
+Cada uno trabaja en su propia rama y **no usamos Pull Requests**: el merge a `main` lo hace quien terminó, después de probar.
+
 1. **Antes de arrancar**, traer lo último de `main` a tu rama (así no se acumulan conflictos):
 
    ```bash
+   git fetch origin
    git checkout lean
-   git pull origin main
+   git pull origin lean
+   git merge origin/main
    ```
 
-2. **Trabajar y commitear seguido**, con mensajes claros:
+2. **Trabajar y commitear seguido**, con mensajes claros y subiendo cada tanto a tu rama:
 
    ```bash
    git add .
@@ -353,9 +357,22 @@ Para ver los mails de las alarmas sin Docker Compose: `docker run -d -p 8025:802
    git push origin lean
    ```
 
-3. **Cuando algo funciona**, abrir un **Pull Request** de tu rama hacia `main` en GitHub.
-4. Otro integrante lo revisa y, si está todo bien, se mergea.
-5. Después del merge, los demás actualizan su rama con `main` (paso 1).
+3. **Cuando termina un bloque de trabajo**, correr todos los tests en tu rama (backend con `./mvnw test` en `backend/`, frontend con `npm test` y `npm run build` en `frontend/`) y probar a mano lo nuevo. Si algo falla, **no se mergea**: se arregla en la rama.
+4. **Mergear a `main`** con un commit de merge (`--no-ff`, para que quede visible qué entró y de qué rama):
+
+   ```bash
+   git checkout main
+   git pull origin main
+   git merge --no-ff lean -m "merge: lean - resumen de lo que entra"
+   ```
+
+5. **Volver a correr los tests, ahora sobre `main`**, antes de subir. Solo si pasan:
+
+   ```bash
+   git push origin main
+   ```
+
+6. Después del merge, los demás traen los cambios a su rama con `git merge origin/main` (paso 1).
 
 ### Convención de commits
 
@@ -372,6 +389,7 @@ Usamos prefijos para que el historial se entienda de un vistazo:
 
 ### Buenas prácticas
 
-- Los conflictos se resuelven **en tu rama**, nunca en `main`.
+- Los conflictos se resuelven **en tu rama** (al hacer `git merge origin/main`), nunca en `main`.
+- No se usa `git push --force`, `git reset --hard` ni `rebase` sobre ramas que ya se subieron.
 - No subir credenciales, archivos `.env` ni contraseñas al repo.
 - Si un cambio toca algo que está haciendo otro, avisar antes por el grupo.
