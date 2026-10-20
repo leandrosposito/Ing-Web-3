@@ -17,18 +17,33 @@ public interface OrdenRepository extends JpaRepository<Orden, Long> {
 
     boolean existsByNumeroOrden(Long numeroOrden);
 
+    /**
+     * Listado de ordenes. El "join fetch" trae camion, chofer, cliente y producto en la misma consulta:
+     * sin el, Hibernate hace una consulta extra por cada orden y cada entidad asociada (problema N+1).
+     */
+    @Query("""
+            select o from Orden o
+            join fetch o.camion join fetch o.chofer join fetch o.cliente join fetch o.producto
+            where o.estado = :estado
+            order by o.numeroOrden asc""")
     List<Orden> findByEstadoOrderByNumeroOrdenAsc(EstadoOrden estado);
 
+    @Query("""
+            select o from Orden o
+            join fetch o.camion join fetch o.chofer join fetch o.cliente join fetch o.producto
+            order by o.numeroOrden asc""")
     List<Orden> findAllByOrderByNumeroOrdenAsc();
 
     /**
      * Consulta del monitoreo: el estado es opcional (null = todos) y la patente filtra por "contiene" sin
      * distinguir mayusculas (texto vacio = todas). El orden llega en el parametro Sort.
+     * Con "join fetch" trae las entidades asociadas en la misma consulta (evita el N+1).
      */
     @Query("""
             select o from Orden o
+            join fetch o.camion c join fetch o.chofer join fetch o.cliente join fetch o.producto
             where (:estado is null or o.estado = :estado)
-              and lower(o.camion.patente) like lower(concat('%', :patente, '%'))""")
+              and lower(c.patente) like lower(concat('%', :patente, '%'))""")
     List<Orden> buscarParaMonitoreo(EstadoOrden estado, String patente, Sort sort);
 
     /**

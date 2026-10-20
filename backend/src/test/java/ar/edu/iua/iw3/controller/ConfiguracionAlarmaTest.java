@@ -13,9 +13,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.hamcrest.Matchers.hasItem;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.after;
 import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -81,12 +81,12 @@ class ConfiguracionAlarmaTest {
 
             // 50 supera el umbral viejo (40) pero no el nuevo (60): sin alarma ni mail
             TestAuth.dato(mvc, 8101, 1000, 50, 3000).andExpect(status().isOk());
-            verify(mailSender, never()).send(any(SimpleMailMessage.class));
+            verify(mailSender, after(300).never()).send(any(SimpleMailMessage.class));
 
             // 65 supera el nuevo umbral: 1 mail, solo al destinatario nuevo, con el umbral nuevo en la alarma
             TestAuth.dato(mvc, 8101, 2000, 65, 3000).andExpect(status().isOk());
             ArgumentCaptor<SimpleMailMessage> mail = ArgumentCaptor.forClass(SimpleMailMessage.class);
-            verify(mailSender, times(1)).send(mail.capture());
+            verify(mailSender, timeout(2000).times(1)).send(mail.capture()); // el mail sale en otro hilo (@Async)
             assertArrayEquals(new String[]{"nuevo@test.local"}, mail.getValue().getTo());
             TestAuth.get(mvc, "operador", "/api/v1/alarmas?estado=PENDIENTE")
                     .andExpect(jsonPath("$[?(@.numeroOrden==8101)].umbral", hasItem(60.0)));

@@ -75,6 +75,8 @@ Este documento junta lo que decidimos y por qué. Sirve para preparar el coloqui
 | 26 | **Una sola alarma pendiente por orden.** Mientras exista, no se crean más ni se mandan más mails; después de aceptarla, un nuevo dato sobre el umbral vuelve a alarmar. | Es la regla "no se vuelve a enviar hasta que un usuario autorizado la acepte". |
 | 27 | **El mail se manda después del commit** (`@TransactionalEventListener`) y **si falla solo se registra en el log**. | No debe salir un mail de una alarma que no se guardó, y un SMTP caído no debe impedir recibir los datos de carga. La alarma queda visible en la pantalla igualmente. |
 | 28 | **Aceptar una alarma: solo `OPERADOR` y `ADMIN`.** La observación es opcional; el usuario sale del token y la fecha/hora del servidor. | "Usuario autorizado" del enunciado. Tomar el usuario del token evita aceptar a nombre de otro. |
+| 37 | **Las consultas de monitoreo y del listado de órdenes usan `join fetch`** de camión, chofer, cliente y producto, y las cisternas se traen con `@BatchSize(50)`. | Evita el problema N+1: sin el `join fetch`, 4 órdenes hacían 12 consultas en el monitoreo y 9 en el listado, y crecía con cada orden. Ahora son 1 y como máximo 2, sin importar cuántas órdenes haya (`ConsultasSinN1Test`). |
+| 38 | **El mail de la alarma se manda con `@Async`** (más `@EnableAsync`), después del commit. | El SMTP puede ser lento y el sistema de carga manda datos todo el tiempo: no debe esperar al mail para recibir su respuesta. Complementa el punto 27 (si el mail falla solo se registra en el log). |
 
 ## 6. Conciliaciones, despliegue y Postman (parte de Lean)
 
