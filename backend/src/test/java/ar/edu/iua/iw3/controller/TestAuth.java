@@ -32,6 +32,12 @@ final class TestAuth {
                 .header(HttpHeaders.AUTHORIZATION, bearer(mvc, usuario)));
     }
 
+    /** PUT con JSON autenticado como ese usuario de demo. */
+    static ResultActions put(MockMvc mvc, String usuario, String url, String json) throws Exception {
+        return mvc.perform(MockMvcRequestBuilders.put(url).contentType(MediaType.APPLICATION_JSON).content(json)
+                .header(HttpHeaders.AUTHORIZATION, bearer(mvc, usuario)));
+    }
+
     /** GET autenticado como ese usuario de demo. */
     static ResultActions get(MockMvc mvc, String usuario, String url) throws Exception {
         return mvc.perform(MockMvcRequestBuilders.get(url).header(HttpHeaders.AUTHORIZATION, bearer(mvc, usuario)));

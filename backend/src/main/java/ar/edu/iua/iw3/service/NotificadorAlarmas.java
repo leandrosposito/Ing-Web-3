@@ -20,14 +20,11 @@ public class NotificadorAlarmas {
     private static final Logger log = LoggerFactory.getLogger(NotificadorAlarmas.class);
 
     private final JavaMailSender mailSender;
-    private final String[] destinatarios;
     private final String remitente;
 
     public NotificadorAlarmas(JavaMailSender mailSender,
-                              @Value("${app.alarma.destinatarios}") String[] destinatarios,
                               @Value("${app.alarma.remitente}") String remitente) {
         this.mailSender = mailSender;
-        this.destinatarios = destinatarios;
         this.remitente = remitente;
     }
 
@@ -35,7 +32,7 @@ public class NotificadorAlarmas {
     public void alCrearseAlarma(AlarmaCreada evento) {
         SimpleMailMessage mail = new SimpleMailMessage();
         mail.setFrom(remitente);
-        mail.setTo(destinatarios);
+        mail.setTo(evento.destinatarios().toArray(new String[0]));
         mail.setSubject("Alarma de temperatura - Orden " + evento.numeroOrden());
         mail.setText("""
                 La orden %d registro una temperatura de %.1f grados, por encima del umbral de %.1f.

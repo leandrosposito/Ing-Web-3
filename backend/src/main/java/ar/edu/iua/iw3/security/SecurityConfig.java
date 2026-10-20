@@ -41,6 +41,8 @@ public class SecurityConfig {
                         .hasAnyRole("TMS", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/v1/ordenes/*/habilitar-carga", "/api/v1/ordenes/*/detalle",
                                 "/api/v1/ordenes/*/cierre").hasAnyRole("SISTEMA_CARGA", "ADMIN")
+                        // Configurar las alarmas (umbral y destinatarios): solo ADMIN
+                        .requestMatchers("/api/v1/alarmas/configuracion").hasRole("ADMIN")
                         // Aceptar una alarma: solo un usuario autorizado (el listado lo ve cualquiera logueado)
                         .requestMatchers(HttpMethod.POST, "/api/v1/alarmas/*/aceptar").hasAnyRole("OPERADOR", "ADMIN")
                         // El resto (consultas, conciliacion, etc.) lo puede usar cualquier usuario logueado

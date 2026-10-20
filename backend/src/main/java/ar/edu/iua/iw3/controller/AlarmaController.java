@@ -2,9 +2,12 @@ package ar.edu.iua.iw3.controller;
 
 import ar.edu.iua.iw3.dto.AceptarAlarmaRequest;
 import ar.edu.iua.iw3.dto.AlarmaResponse;
+import ar.edu.iua.iw3.dto.ConfiguracionAlarmaRequest;
+import ar.edu.iua.iw3.dto.ConfiguracionAlarmaResponse;
 import ar.edu.iua.iw3.dto.ErrorResponse;
 import ar.edu.iua.iw3.model.EstadoAlarma;
 import ar.edu.iua.iw3.service.AlarmaService;
+import ar.edu.iua.iw3.service.ConfiguracionAlarmaService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -24,6 +27,7 @@ import java.util.List;
 public class AlarmaController {
 
     private final AlarmaService alarmaService;
+    private final ConfiguracionAlarmaService configuracionService;
 
     @GetMapping
     @Operation(summary = "Listar alarmas", description = "Las mas recientes primero. Opcionalmente filtradas por estado (PENDIENTE o ACEPTADA).")
@@ -45,5 +49,25 @@ public class AlarmaController {
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     public AlarmaResponse aceptar(@PathVariable Long id, @Valid @RequestBody(required = false) AceptarAlarmaRequest req) {
         return alarmaService.aceptar(id, req);
+    }
+
+    @GetMapping("/configuracion")
+    @Operation(summary = "Ver la configuracion de alarmas",
+            description = "Umbral de temperatura y destinatarios de los mails vigentes. Solo rol ADMIN.")
+    @ApiResponse(responseCode = "403", description = "Solo ADMIN",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    public ConfiguracionAlarmaResponse verConfiguracion() {
+        return ConfiguracionAlarmaResponse.desde(configuracionService.obtener());
+    }
+
+    @PutMapping("/configuracion")
+    @Operation(summary = "Cambiar la configuracion de alarmas",
+            description = "Reemplaza el umbral y los destinatarios. Rige desde el proximo dato de carga, sin reiniciar. Solo rol ADMIN.")
+    @ApiResponse(responseCode = "400", description = "Umbral fuera de rango o mails invalidos",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "Solo ADMIN",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    public ConfiguracionAlarmaResponse cambiarConfiguracion(@Valid @RequestBody ConfiguracionAlarmaRequest req) {
+        return ConfiguracionAlarmaResponse.desde(configuracionService.actualizar(req));
     }
 }
