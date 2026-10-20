@@ -10,6 +10,7 @@ import ar.edu.iua.iw3.model.EstadoAlarma;
 import ar.edu.iua.iw3.model.Orden;
 import ar.edu.iua.iw3.repository.AlarmaRepository;
 import ar.edu.iua.iw3.security.UsuarioActual;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,27 +18,19 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 
-/** Alarmas de temperatura: se crean al superar el umbral y quedan pendientes hasta que un usuario las acepta. */
+/** Las alarmas quedan pendientes hasta que un usuario las acepta. */
 @Service
+@RequiredArgsConstructor
 public class AlarmaService {
 
     private final AlarmaRepository alarmaRepository;
     private final ApplicationEventPublisher publisher;
-
-    /** Umbral y destinatarios vigentes (se editan desde el sistema, por eso se leen en cada evaluacion). */
     private final ConfiguracionAlarmaService configuracion;
 
-    public AlarmaService(AlarmaRepository alarmaRepository, ApplicationEventPublisher publisher,
-                         ConfiguracionAlarmaService configuracion) {
-        this.alarmaRepository = alarmaRepository;
-        this.publisher = publisher;
-        this.configuracion = configuracion;
-    }
-
     /**
-     * Se llama con cada dato de carga valido (dentro de la transaccion de CargaService).
-     * Si supera el umbral y la orden no tiene ya una alarma pendiente, crea la alarma y avisa por evento.
-     * Como la orden esta bloqueada (SELECT ... FOR UPDATE), dos datos simultaneos no crean dos alarmas.
+     * Se llama con cada dato valido, dentro de la transaccion de CargaService. Si supera el umbral y la orden no
+     * tiene una alarma pendiente, crea la alarma y publica el evento. La orden esta bloqueada, asi que dos datos
+     * simultaneos no crean dos alarmas.
      */
     @Transactional
     public void evaluar(Orden orden, double temperatura) {
@@ -47,7 +40,7 @@ public class AlarmaService {
             return;
         }
         if (alarmaRepository.existsByOrdenAndEstado(orden, EstadoAlarma.PENDIENTE)) {
-            return; // ya se aviso y nadie la acepto: no se vuelve a mandar
+            return; // ya se aviso y nadie la acepto
         }
         Alarma alarma = alarmaRepository.save(new Alarma(orden, temperatura, umbral));
         publisher.publishEvent(new AlarmaCreada(alarma.getId(), orden.getNumeroOrden(), temperatura, umbral,
@@ -62,7 +55,6 @@ public class AlarmaService {
         return alarmas.stream().map(AlarmaResponse::desde).toList();
     }
 
-    /** Acepta la alarma registrando quien (usuario del token), cuando y la observacion. */
     @Transactional
     public AlarmaResponse aceptar(Long id, AceptarAlarmaRequest req) {
         Alarma alarma = alarmaRepository.findById(id)
