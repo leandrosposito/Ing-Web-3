@@ -1,5 +1,6 @@
 package ar.edu.iua.iw3.security;
 
+import ar.edu.iua.iw3.dto.ErrorResponse;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -14,17 +15,19 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+import tools.jackson.databind.ObjectMapper;
+
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.List;
 
-/**
- * Quien puede llamar a cada endpoint. Las reglas se leen de arriba hacia abajo: gana la primera que coincide.
- */
+/** Quien puede llamar a cada endpoint. Se leen de arriba hacia abajo y gana la primera regla que coincide. */
 @Configuration
 @RequiredArgsConstructor
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
+    private final ObjectMapper objectMapper;
 
     @Bean
     public SecurityFilterChain filtros(HttpSecurity http) throws Exception {
@@ -61,13 +64,13 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    /** Mismo formato JSON que el GlobalExceptionHandler (estos errores ocurren antes de llegar a un controller). */
-    private static void escribirError(HttpServletResponse res, int status, String error, String mensaje, String path)
+    /** Mismo ErrorResponse que el GlobalExceptionHandler (estos errores ocurren antes de llegar a un controller). */
+    private void escribirError(HttpServletResponse res, int status, String error, String mensaje, String path)
             throws IOException {
         res.setStatus(status);
         res.setContentType(MediaType.APPLICATION_JSON_VALUE);
         res.setCharacterEncoding("UTF-8");
-        res.getWriter().write("{\"timestamp\":\"%s\",\"status\":%d,\"error\":\"%s\",\"mensaje\":\"%s\",\"path\":\"%s\",\"detalles\":[]}"
-                .formatted(LocalDateTime.now(), status, error, mensaje, path));
+        ErrorResponse cuerpo = new ErrorResponse(LocalDateTime.now(), status, error, mensaje, path, List.of());
+        res.getWriter().write(objectMapper.writeValueAsString(cuerpo));
     }
 }
