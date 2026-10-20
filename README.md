@@ -204,7 +204,7 @@ El modelo es extensible: se pueden agregar propiedades según lo que vaya necesi
   - [x] Gestión de alarmas: verlas, aceptarlas, registrar usuario, fecha/hora y observación
   - [x] Visualización de conciliaciones (solo estado 4)
 - [x] Despliegue con Docker Compose (MySQL + backend + frontend + Mailpit)
-- [x] Colección de Postman con login y el resto de los requests usando el token
+- [x] Colección de Postman con un login por usuario de demo; cada request usa el usuario de su rol (incluye un 403 y el flujo de alarmas)
 
 ---
 
