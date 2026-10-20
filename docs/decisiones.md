@@ -61,6 +61,7 @@ Este documento junta lo que decidimos y por qué. Sirve para preparar el coloqui
 | 17 | **Usuarios de demo creados al arrancar** con la contraseña de `PASSWORD_DEMO` (por defecto `demo1234`, solo desarrollo). | Los equipos necesitan poder entrar sin cargar datos a mano, y la contraseña no queda fija en el código. No hay ABM de usuarios porque el enunciado no lo pide. |
 | 18 | **El token se guarda en `localStorage`** y se manda en el header `Authorization`. | Es lo más simple de implementar y explicar. El riesgo (XSS) se mitiga con tokens de vida corta. |
 | 19 | **Los 401/403 los arma `SecurityConfig` con el mismo JSON** que `GlobalExceptionHandler`. | Esos errores ocurren en los filtros, antes de llegar a un controller, por eso el `@RestControllerAdvice` no los ve. |
+| 39 | **La consola de H2 (`/h2-console`) solo existe con el perfil `h2`**: la habilita `application-h2.properties` y su seguridad (`H2ConsoleSecurityConfig`, `@Profile("h2")`) la deja pasar sin token, sin CSRF y con `frameOptions` en `sameOrigin`. Sin el perfil, queda cerrada (401 sin token, 404 con token). | Antes el perfil `h2` la habilitaba pero la cadena de seguridad la bloqueaba (pedía JWT y prohibía los frames), así que no se podía usar. Abrirla sin autenticación es aceptable solo para la base en memoria de desarrollo; en un servidor sería acceso directo a la base. La API sigue protegida igual. |
 
 ## 5. Monitoreo y alarmas (parte de Fabri)
 
