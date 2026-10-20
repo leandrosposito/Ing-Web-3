@@ -18,7 +18,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
-    /** Verifica usuario y contrasena. El mismo error para "no existe" y "clave mala": no revela cual fallo. */
+    /** Mismo error para usuario inexistente y clave mala, para no revelar cual fallo. */
     @Transactional(readOnly = true)
     public LoginResponse login(LoginRequest req) {
         Usuario usuario = usuarioRepository.findByUsername(req.username())

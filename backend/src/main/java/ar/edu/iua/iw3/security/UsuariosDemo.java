@@ -9,10 +9,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
-/**
- * Al arrancar, si no hay usuarios, crea uno por cada rol (sap, tms, carga, operador, admin).
- * Todos con la contrasena de la variable PASSWORD_DEMO (por defecto "demo1234", solo para desarrollo).
- */
+/** Al arrancar, si no hay usuarios, crea uno por rol con la contrasena PASSWORD_DEMO (solo desarrollo). */
 @Component
 @RequiredArgsConstructor
 public class UsuariosDemo implements CommandLineRunner {

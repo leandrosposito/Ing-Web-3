@@ -22,12 +22,12 @@ public class JwtService {
 
     public JwtService(@Value("${app.seguridad.jwt-secret}") String secreto,
                       @Value("${app.seguridad.jwt-expiracion-minutos:120}") long expiracionMinutos) {
-        // HS256 exige una clave de al menos 32 bytes
+        // HS256 exige al menos 32 bytes
         this.clave = Keys.hmacShaKeyFor(secreto.getBytes(StandardCharsets.UTF_8));
         this.expiracion = Duration.ofMinutes(expiracionMinutos);
     }
 
-    /** El token lleva el usuario (subject) y el rol; no hace falta consultar la base en cada request. */
+    /** El token lleva usuario y rol, asi no se consulta la base en cada request. */
     public String generar(String username, String rol) {
         Date ahora = new Date();
         return Jwts.builder()
