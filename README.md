@@ -128,52 +128,12 @@ Si un dato de carga válido supera el umbral (40 °C por defecto) se crea una al
 
 ---
 
-## Reglas de negocio clave
+## Reglas de carga y conciliación
 
-**Integración con sistemas externos**
-- Toda entidad que viene de afuera (camión, chofer, cliente, producto) se identifica con un **código externo de tipo `string`**, para no atarnos rígidamente a los IDs de otros sistemas.
-
-**Habilitación de carga (punto 3.1)**
-- Solo se devuelve el preset si la orden existe, está en estado 2 y la contraseña es correcta.
-
-**Datos de carga en tiempo real (punto 3.3)**
-- Se **descartan** los registros con:
-  - Caudal ≤ 0
-  - Masa acumulada ≤ 0, o menor que el valor anterior
-  - Densidad fuera de (0, 1] _(interpretación nuestra, ver [decisiones](docs/decisiones.md))_
-- En la cabecera de la orden se guarda siempre el **último valor válido** (masa, densidad, temperatura, caudal y timestamp).
-- El detalle histórico se almacena según una **frecuencia configurable**, que puede ser distinta a la de recepción.
-  _Ejemplo: si llegan datos cada 1 s y se guarda cada 10 s, en un minuto llegan 60 registros y se guardan 6._
-- Inicio de carga = primer registro válido. Fin de carga = último registro válido.
-
-**Conciliación (punto 5)**
-
-| Dato | Cálculo |
-|---|---|
-| Pesaje inicial | Tara |
-| Pesaje final | Pesaje recibido del TMS |
-| Producto cargado | Último valor de masa acumulada |
-| Neto por balanza | Pesaje final − Pesaje inicial |
-| Diferencia balanza vs. caudalímetro | Neto por balanza − Producto cargado |
-| Promedios | Temperatura, densidad y caudal (sobre los datos almacenados) |
-
----
-
-## Modelo de datos (resumen)
-
-| Entidad | Atributos principales (`*` = opcional) |
-|---|---|
-| **Camión** | Código externo, patente, descripción\*, cisternado (capacidad de cada cisterna y total) |
-| **Chofer** | Código externo, nombre, apellido, documento\* |
-| **Cliente** | Código externo, razón social, contacto\* |
-| **Producto** | Código externo, nombre, descripción\* |
-| **Orden** | Número de orden, camión, chofer, cliente, producto, fecha prevista, preset, tara, pesaje final, password, estado, fechas de cada evento, últimos valores de carga |
-| **Detalle de carga** | Masa acumulada, densidad, temperatura, caudal, timestamp |
-| **Log de estados** | Orden, estado anterior, estado nuevo, fecha/hora, usuario, observaciones |
-| **Usuario** | Username, hash de la contraseña (BCrypt), rol |
-| **Alarma** | Orden, temperatura, umbral, fecha/hora, estado (pendiente/aceptada), usuario, fecha y observación de la aceptación |
-
-El modelo es extensible: se pueden agregar propiedades según lo que vaya necesitando el negocio o la integración.
+- Un dato de carga se descarta si caudal ≤ 0, masa ≤ 0 o menor que la anterior, o densidad fuera de (0, 1].
+- La cabecera de la orden guarda el último dato válido; el detalle se guarda cada `FRECUENCIA_DETALLE_SEGUNDOS` (0 = todos).
+- Inicio de carga = primer dato válido; fin de carga = último dato válido.
+- Conciliación: neto por balanza = pesaje final − tara; diferencia = neto − producto cargado (última masa acumulada); los promedios de temperatura, densidad y caudal son sobre los datos almacenados.
 
 ---
 
@@ -232,19 +192,7 @@ El modelo es extensible: se pueden agregar propiedades según lo que vaya necesi
 └── .env.example         # Variables de Docker Compose (copiar como .env para cambiarlas)
 ```
 
-La explicación de cada parte del trabajo (qué se hizo, conceptos y preguntas posibles del coloquio) está en [`docs/partes/`](docs/partes): [`lean.md`](docs/partes/lean.md), [`fran.md`](docs/partes/fran.md) y [`fabri.md`](docs/partes/fabri.md).
-
-Paquetes del backend (`backend/src/main/java/ar/edu/iua/iw3`), organizados por capa:
-
-| Paquete | Qué tiene |
-|---|---|
-| `controller` | Un controller por sistema que consume la API (SAP, TMS, sistema de carga) + consultas. Solo reciben HTTP y delegan. |
-| `service` | Reglas de negocio: transiciones de estado + auditoría, sincronización de maestros, reglas de descarte, conciliación, monitoreo y alarmas. |
-| `security` | Login, JWT, filtro de autenticación y permisos por rol. |
-| `repository` | Interfaces Spring Data JPA. |
-| `model` | Entidades JPA y la máquina de estados (`EstadoOrden`). |
-| `dto` / `mapper` | Contrato de entrada/salida de la API y conversión desde las entidades. |
-| `exception` | Excepciones de negocio y `GlobalExceptionHandler` (las traduce a 400/401/404/409). |
+Qué hizo cada integrante: [`docs/partes/`](docs/partes) ([`lean.md`](docs/partes/lean.md), [`fran.md`](docs/partes/fran.md), [`fabri.md`](docs/partes/fabri.md)).
 
 Las decisiones de diseño y cómo interpretamos las partes ambiguas del enunciado están en [`docs/decisiones.md`](docs/decisiones.md).
 
@@ -329,69 +277,21 @@ Para ver los mails de las alarmas sin Docker Compose: `docker run -d -p 8025:802
 
 ## Cómo trabajamos con Git
 
-### Ramas
+Cada uno trabaja en su rama (`lean`, `fran`, `fabri`) y `main` solo recibe lo que funciona. No usamos Pull Requests: mergea quien terminó, después de probar.
 
-| Rama | Para qué |
-|---|---|
-| `main` | Versión estable. **Solo entra lo que funciona y está probado.** No se commitea directo. |
-| `lean` | Rama de trabajo de Leandro |
-| `fran` | Rama de trabajo de Fran |
-| `fabri` | Rama de trabajo de Fabri |
+```bash
+git checkout lean && git merge origin/main      # traer lo último de main
+# trabajar, commitear y subir: git push origin lean
+# con los tests pasando (./mvnw test en backend/, npm test en frontend/):
+git checkout main && git pull origin main
+git merge --no-ff lean -m "merge: lean - resumen de lo que entra"
+# volver a correr los tests sobre main; si pasan:
+git push origin main
+```
 
-### Flujo de trabajo
+Prefijos de commit: `feat:` funcionalidad, `fix:` bug, `docs:` documentación, `refactor:` sin cambiar el comportamiento, `test:` tests o Postman, `chore:` configuración.
 
-Cada uno trabaja en su propia rama y **no usamos Pull Requests**: el merge a `main` lo hace quien terminó, después de probar.
-
-1. **Antes de arrancar**, traer lo último de `main` a tu rama (así no se acumulan conflictos):
-
-   ```bash
-   git fetch origin
-   git checkout lean
-   git pull origin lean
-   git merge origin/main
-   ```
-
-2. **Trabajar y commitear seguido**, con mensajes claros y subiendo cada tanto a tu rama:
-
-   ```bash
-   git add .
-   git commit -m "feat: endpoint de pesaje inicial"
-   git push origin lean
-   ```
-
-3. **Cuando termina un bloque de trabajo**, correr todos los tests en tu rama (backend con `./mvnw test` en `backend/`, frontend con `npm test` y `npm run build` en `frontend/`) y probar a mano lo nuevo. Si algo falla, **no se mergea**: se arregla en la rama.
-4. **Mergear a `main`** con un commit de merge (`--no-ff`, para que quede visible qué entró y de qué rama):
-
-   ```bash
-   git checkout main
-   git pull origin main
-   git merge --no-ff lean -m "merge: lean - resumen de lo que entra"
-   ```
-
-5. **Volver a correr los tests, ahora sobre `main`**, antes de subir. Solo si pasan:
-
-   ```bash
-   git push origin main
-   ```
-
-6. Después del merge, los demás traen los cambios a su rama con `git merge origin/main` (paso 1).
-
-### Convención de commits
-
-Usamos prefijos para que el historial se entienda de un vistazo:
-
-| Prefijo | Uso |
-|---|---|
-| `feat:` | Funcionalidad nueva |
-| `fix:` | Corrección de un bug |
-| `docs:` | Documentación (README, Swagger, etc.) |
-| `refactor:` | Cambios de código sin cambiar el comportamiento |
-| `test:` | Tests o colecciones de Postman |
-| `chore:` | Configuración, dependencias, cosas varias |
-
-### Buenas prácticas
-
-- Los conflictos se resuelven **en tu rama** (al hacer `git merge origin/main`), nunca en `main`.
-- No se usa `git push --force`, `git reset --hard` ni `rebase` sobre ramas que ya se subieron.
-- No subir credenciales, archivos `.env` ni contraseñas al repo.
+- Los conflictos se resuelven en tu rama (al hacer `git merge origin/main`), nunca en `main`.
+- No usar `push --force`, `reset --hard` ni `rebase` sobre ramas ya subidas.
+- No subir credenciales ni archivos `.env`.
 - Si un cambio toca algo que está haciendo otro, avisar antes por el grupo.

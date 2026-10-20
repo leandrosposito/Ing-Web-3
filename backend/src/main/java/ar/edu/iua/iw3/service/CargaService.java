@@ -1,6 +1,10 @@
 package ar.edu.iua.iw3.service;
 
-import ar.edu.iua.iw3.dto.*;
+import ar.edu.iua.iw3.dto.DetalleCargaRequest;
+import ar.edu.iua.iw3.dto.DetalleCargaResponse;
+import ar.edu.iua.iw3.dto.DetalleCargaResultado;
+import ar.edu.iua.iw3.dto.HabilitacionCargaRequest;
+import ar.edu.iua.iw3.dto.HabilitacionCargaResponse;
 import ar.edu.iua.iw3.exception.PasswordIncorrectaException;
 import ar.edu.iua.iw3.mapper.OrdenMapper;
 import ar.edu.iua.iw3.model.DetalleCarga;
@@ -23,7 +27,7 @@ public class CargaService {
     private final DetalleCargaRepository detalleCargaRepository;
     private final AlarmaService alarmaService;
 
-    /** Cada cuantos segundos se guarda un registro de detalle (0 = todos). Se configura en application.properties. */
+    /** Cada cuantos segundos se guarda un detalle (0 = todos). */
     private final long frecuenciaAlmacenamientoSegundos;
 
     public CargaService(OrdenService ordenService, DetalleCargaRepository detalleCargaRepository,
@@ -35,10 +39,7 @@ public class CargaService {
         this.frecuenciaAlmacenamientoSegundos = frecuenciaAlmacenamientoSegundos;
     }
 
-    /**
-     * Punto 3.1/3.2: devuelve el preset solo si la orden existe, esta en estado 2 y la contrasena es correcta.
-     * No cambia el estado: la orden sigue en 2 mientras se carga.
-     */
+    /** Devuelve el preset solo si la orden esta en estado 2 y la contrasena es correcta. No cambia el estado. */
     @Transactional(readOnly = true)
     public HabilitacionCargaResponse habilitarCarga(Long numeroOrden, HabilitacionCargaRequest req) {
         Orden orden = ordenService.obtener(numeroOrden);
@@ -50,14 +51,12 @@ public class CargaService {
     }
 
     /**
-     * Punto 3.3: recibe un dato de carga.
-     * - Si no es valido se descarta (no toca nada).
-     * - Si es valido actualiza siempre la cabecera de la orden con los ultimos valores.
-     * - Ademas lo guarda como detalle si ya paso el tiempo de la frecuencia configurada.
+     * Un dato invalido se descarta. Uno valido actualiza siempre la cabecera de la orden
+     * y se guarda como detalle solo si paso la frecuencia configurada.
      */
     @Transactional
     public DetalleCargaResultado recibirDetalle(Long numeroOrden, DetalleCargaRequest dato) {
-        // Bloqueo la fila: dos datos simultaneos (o un dato y el cierre) se procesan de a uno
+        // bloquea la fila: dos datos simultaneos (o un dato y el cierre) se procesan de a uno
         Orden orden = ordenService.obtenerParaActualizar(numeroOrden);
         orden.verificarEstado(EstadoOrden.CON_PESAJE_INICIAL);
 
@@ -94,9 +93,9 @@ public class CargaService {
 
     private void actualizarCabecera(Orden orden, DetalleCargaRequest dato, LocalDateTime ahora) {
         if (orden.getFechaInicioCarga() == null) {
-            orden.setFechaInicioCarga(ahora); // primer dato valido
+            orden.setFechaInicioCarga(ahora);
         }
-        orden.setFechaFinCarga(ahora);        // ultimo dato valido (se va pisando)
+        orden.setFechaFinCarga(ahora);
         orden.setUltimaMasaAcumulada(dato.masaAcumulada());
         orden.setUltimaDensidad(dato.densidad());
         orden.setUltimaTemperatura(dato.temperatura());
@@ -104,7 +103,6 @@ public class CargaService {
         orden.setFechaUltimoDato(ahora);
     }
 
-    /** Busca cuando se guardo el ultimo detalle y le pregunta a la regla pura si este dato se guarda. */
     private boolean debeAlmacenar(Orden orden, LocalDateTime ahora) {
         LocalDateTime ultimoGuardado = detalleCargaRepository.findTopByOrdenOrderByFechaHoraDesc(orden)
                 .map(DetalleCarga::getFechaHora)

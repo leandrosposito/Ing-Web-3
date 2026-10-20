@@ -3,7 +3,7 @@ import { leerError } from '../api/errores'
 
 const CLAVE = 'iw3_sesion'
 
-/** Recupera la sesion guardada, para que seguir logueado al recargar la pagina. */
+/** Recupera la sesion guardada para seguir logueado al recargar la pagina. */
 function leerSesion() {
   try {
     return JSON.parse(localStorage.getItem(CLAVE)) ?? {}

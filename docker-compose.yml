@@ -1,7 +1,5 @@
-# Levanta todo el sistema con un solo comando:  docker compose up --build
-#
-# Las variables ${NOMBRE:-valor} toman el valor de un archivo .env (copiar .env.example) y,
-# si no existe, usan el valor de despues de ":-" (solo sirve para desarrollo).
+# docker compose up --build
+# ${NOMBRE:-valor}: toma el valor del .env (ver .env.example) o, si no existe, el de despues de ":-" (solo desarrollo)
 
 services:
 
