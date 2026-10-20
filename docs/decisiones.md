@@ -1,6 +1,6 @@
 # Decisiones de diseño e interpretación del enunciado
 
-Este documento junta lo que decidimos y por qué. Sirve para preparar el coloquio: cualquiera del grupo tiene que poder defenderlo.
+Lo que decidimos y por qué. Cualquiera del grupo tiene que poder defenderlo en el coloquio.
 
 ## 1. Interpretaciones de partes ambiguas del enunciado
 
@@ -31,26 +31,7 @@ Este documento junta lo que decidimos y por qué. Sirve para preparar el coloqui
 - **Errores.** Un único `@RestControllerAdvice` traduce las excepciones a 400/401/404/409 con el mismo formato JSON.
 - **Perfiles.** MySQL por defecto (las credenciales salen de variables de entorno o de un `.env` que no se sube). El perfil `h2` y los tests usan H2 en memoria, así se puede probar sin instalar nada.
 
-## 3. Conceptos aplicados (para el coloquio)
-
-| Concepto | Dónde está en el proyecto |
-|---|---|
-| **API REST** | Recurso `/ordenes/{numeroOrden}`, verbos HTTP con su significado y códigos de estado semánticos (201, 400, 401, 404, 409). |
-| **Arquitectura en capas** | `controller` → `service` → `repository`. Los controllers no tienen lógica; las reglas están en los services y se testean sin HTTP. |
-| **DTOs** | Paquete `dto`: lo que manda SAP no es igual a la entidad `Orden`, y la conciliación es un DTO calculado. |
-| **Máquina de estados** | `EstadoOrden` + `OrdenService.cambiarEstado()`. Test: `EstadoOrdenTest`. |
-| **Validaciones** | De formato con Bean Validation en los DTOs (`@NotNull`, `@Positive`, `@Valid`) → 400. De negocio en los services (estado, contraseña, reglas de descarte). |
-| **Manejo centralizado de excepciones** | `GlobalExceptionHandler` + excepciones propias en `exception`. |
-| **ORM / JPA** | Entidades en `model`. Relaciones `@ManyToOne` (orden → maestros) y `@OneToMany` (camión → cisternas con `cascade` y `orphanRemoval`). Hibernate genera las tablas (`ddl-auto=update`). |
-| **Transacciones** | `@Transactional` en los services: alta + sincronización + auditoría en una sola transacción; `readOnly` en las consultas. |
-| **Locking pesimista** | `OrdenRepository.findByNumeroOrdenParaActualizar()`. |
-| **Integración por código externo** | `SincronizacionService` (upsert por `codigoExterno`). |
-| **Auditoría** | Entidad `CambioEstado` + endpoint `/historial-estados`. |
-| **OpenAPI / Swagger** | springdoc genera el spec a partir de los controllers, más `@Operation` / `@ApiResponse` con los errores reales de cada endpoint. |
-| **Configuración externalizada** | `application.properties` con `${VARIABLE:default}`, `.env` ignorado por git, perfil `h2`. |
-| **Testing** | Unitarios (JUnit) para las reglas puras, integración con `MockMvc` para el circuito completo, y la colección Postman con tests en JS. |
-
-## 4. Seguridad y login (parte de Fran)
+## 3. Seguridad y login (parte de Fran)
 
 | # | Decisión | Por qué |
 |---|---|---|
@@ -63,7 +44,7 @@ Este documento junta lo que decidimos y por qué. Sirve para preparar el coloqui
 | 19 | **Los 401/403 los arma `SecurityConfig` con el mismo JSON** que `GlobalExceptionHandler`. | Esos errores ocurren en los filtros, antes de llegar a un controller, por eso el `@RestControllerAdvice` no los ve. |
 | 39 | **La consola de H2 (`/h2-console`) solo existe con el perfil `h2`**: la habilita `application-h2.properties` y su seguridad (`H2ConsoleSecurityConfig`, `@Profile("h2")`) la deja pasar sin token, sin CSRF y con `frameOptions` en `sameOrigin`. Sin el perfil, queda cerrada (401 sin token, 404 con token). | Antes el perfil `h2` la habilitaba pero la cadena de seguridad la bloqueaba (pedía JWT y prohibía los frames), así que no se podía usar. Abrirla sin autenticación es aceptable solo para la base en memoria de desarrollo; en un servidor sería acceso directo a la base. La API sigue protegida igual. |
 
-## 5. Monitoreo y alarmas (parte de Fabri)
+## 4. Monitoreo y alarmas (parte de Fabri)
 
 | # | Decisión | Por qué |
 |---|---|---|
@@ -71,7 +52,7 @@ Este documento junta lo que decidimos y por qué. Sirve para preparar el coloqui
 | 21 | **Los valores derivados se calculan al consultar**, no se guardan. | Se deducen de datos que ya están en la cabecera de la orden, así nunca quedan desactualizados. |
 | 22 | **Filtros (estado, patente) y orden se resuelven en el backend**, con una lista blanca de columnas. | El frontend no baja lo que no muestra y no se arma un `ORDER BY` con texto del cliente. |
 | 23 | **Actualización automática por polling cada 5 s** (no WebSockets ni SSE). | Alcanza para "se actualiza sola", mantiene la API REST común y es lo más fácil de explicar. |
-| 24 | **Umbral y destinatarios se guardan en la base y se editan desde el sistema** (tabla `configuracion_alarma`, una sola fila). `GET` y `PUT /api/v1/alarmas/configuracion`, solo `ADMIN`; formulario en la pantalla de alarmas, visible solo para `ADMIN`. Las variables `ALARMA_TEMPERATURA_UMBRAL` y `ALARMA_DESTINATARIOS` quedan como **valor inicial**: se usan una sola vez, cuando la tabla está vacía. Después manda la base (si se cambian las variables con la tabla ya creada, no pasa nada). El remitente sigue siendo una variable. | Primero se había decidido por variables de entorno (el enunciado decía "configurables"), pero obligaba a reiniciar el backend; se cambió por pedido del equipo. El cambio rige en el próximo dato porque se lee la configuración en cada evaluación. Validación: umbral entre -50 y 200, de 1 a 10 mails válidos. Se guardan quién y cuándo cambió la configuración. La alarma guarda el umbral con el que se disparó, y el evento lleva los destinatarios vigentes en ese momento. |
+| 24 | **Umbral y destinatarios se guardan en la base y los edita el `ADMIN`** (tabla `configuracion_alarma`, una sola fila; `GET` y `PUT /api/v1/alarmas/configuracion` y formulario en la pantalla de alarmas). Las variables `ALARMA_TEMPERATURA_UMBRAL` y `ALARMA_DESTINATARIOS` son solo el valor inicial, cuando la tabla está vacía. | Con variables de entorno había que reiniciar el backend. Ahora el cambio rige en el próximo dato porque la configuración se lee en cada evaluación. Validación: umbral entre -50 y 200 y de 1 a 10 mails válidos; se guarda quién y cuándo la cambió. La alarma guarda el umbral con el que se disparó. |
 | 25 | **Alarma = dato válido con `temperatura > umbral`**. Un dato descartado no alarma. El umbral usado queda guardado en la alarma. | La cabecera solo guarda datos válidos. Guardar el umbral permite auditar la alarma aunque después cambie la configuración. |
 | 26 | **Una sola alarma pendiente por orden.** Mientras exista, no se crean más ni se mandan más mails; después de aceptarla, un nuevo dato sobre el umbral vuelve a alarmar. | Es la regla "no se vuelve a enviar hasta que un usuario autorizado la acepte". |
 | 27 | **El mail se manda después del commit** (`@TransactionalEventListener`) y **si falla solo se registra en el log**. | No debe salir un mail de una alarma que no se guardó, y un SMTP caído no debe impedir recibir los datos de carga. La alarma queda visible en la pantalla igualmente. |
@@ -79,7 +60,7 @@ Este documento junta lo que decidimos y por qué. Sirve para preparar el coloqui
 | 37 | **Las consultas de monitoreo y del listado de órdenes usan `join fetch`** de camión, chofer, cliente y producto, y las cisternas se traen con `@BatchSize(50)`. | Evita el problema N+1: sin el `join fetch`, 4 órdenes hacían 12 consultas en el monitoreo y 9 en el listado, y crecía con cada orden. Ahora son 1 y como máximo 2, sin importar cuántas órdenes haya (`ConsultasSinN1Test`). |
 | 38 | **El mail de la alarma se manda con `@Async`** (más `@EnableAsync`), después del commit. | El SMTP puede ser lento y el sistema de carga manda datos todo el tiempo: no debe esperar al mail para recibir su respuesta. Complementa el punto 27 (si el mail falla solo se registra en el log). |
 
-## 6. Conciliaciones, despliegue y Postman (parte de Lean)
+## 5. Conciliaciones, despliegue y Postman (parte de Lean)
 
 | # | Decisión | Por qué |
 |---|---|---|
@@ -89,5 +70,5 @@ Este documento junta lo que decidimos y por qué. Sirve para preparar el coloqui
 | 32 | **nginx del frontend reenvía `/api` al backend**, y el frontend llama siempre a rutas relativas. | Igual que el proxy de Vite en desarrollo. El navegador habla con un único origen y no hace falta configurar CORS. |
 | 33 | **Solo se publican los puertos 3000 (web), 8080 (API/Swagger) y 8025 (Mailpit).** MySQL queda interno. | Evita choques con un MySQL local en el 3306 y no expone la base. |
 | 34 | **Valores por defecto de desarrollo en el compose** (`${VAR:-valor}`); para cambiarlos se usa un `.env` que no se sube (hay un `.env.example`). | El proyecto arranca sin configurar nada (útil para el coloquio), sin dejar secretos reales en el repo. |
-| 35 | **Postman: un login por usuario de demo y cada request con el usuario que le corresponde.** Se guarda un token por usuario en variables de colección (`tokenSap`, `tokenTms`, `tokenCarga`, `tokenOperador`, `tokenAdmin`): `sap` crea órdenes, `tms` hace los pesajes, `carga` habilita, envía datos y cierra, `operador` consulta y acepta alarmas, y `admin` solo cambia la configuración de alarmas. Incluye un 403 de ejemplo (`tms` intentando crear una orden), el flujo de alarmas (dato sobre el umbral → alarma pendiente → aceptar con `operador` → aceptar de nuevo da 409) y la verificación de que el historial de estados muestra `sap`, `tms`, `carga`, `tms`. | Con un solo usuario `admin` la colección no probaba la seguridad: nada fallaba aunque los permisos estuvieran mal. Así cada request prueba que su rol alcanza, el 403 prueba que no alcanza otro, y el historial prueba que la auditoría guarda el usuario autenticado. El dato de alarma usa 200 °C para disparar cualquier umbral razonable sin depender de la configuración vigente. |
+| 35 | **Postman: un login por usuario de demo y cada request con el token de su rol** (`tokenSap`, `tokenTms`, `tokenCarga`, `tokenOperador`, `tokenAdmin`). Incluye un 403 (`tms` intentando crear una orden), el flujo de alarmas (dato sobre el umbral, alarma pendiente, aceptarla con `operador`, aceptarla de nuevo da 409) y la verificación de que el historial guarda `sap`, `tms`, `carga`, `tms`. | Con un solo `admin` la colección no probaba la seguridad: nada fallaba aunque los permisos estuvieran mal. El dato de alarma usa 200 °C para disparar cualquier umbral sin depender de la configuración vigente. |
 | 36 | **La regla "guardar o no este dato" es una función pura** (`ReglasAlmacenamiento.debeAlmacenar(ultimoGuardado, ahora, frecuencia)`), separada de `CargaService`. | Se puede testear con horas fijas, sin base ni reloj: con frecuencia de 10 s y un dato por segundo durante 60 s se guardan 6, como en el ejemplo del enunciado (`ReglasAlmacenamientoTest`). `CargaService` solo busca la fecha del último detalle guardado y le pregunta a la regla. |
