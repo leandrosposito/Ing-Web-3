@@ -1815,7 +1815,7 @@
                 "alarmas"
               ]
             },
-            "description": "Alarmas de temperatura, las mas recientes primero. Se generan al enviar un dato con temperatura mayor al umbral (40 por defecto); para aceptar una: POST {{baseUrl}}/alarmas/{id}/aceptar con rol OPERADOR o ADMIN.",
+            "description": "Alarmas de temperatura, las mas recientes primero. Se aceptan con POST /alarmas/{id}/aceptar (operador o admin).",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -1855,7 +1855,7 @@
                 "configuracion"
               ]
             },
-            "description": "Umbral y destinatarios vigentes. Solo rol ADMIN (el usuario por defecto de la coleccion es admin). Guarda los valores en variables para que el siguiente request los reenvie sin cambiarlos.",
+            "description": "Umbral y destinatarios vigentes (solo admin). Los guarda en variables para reenviarlos sin cambios en el request 26.",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -1903,7 +1903,7 @@
                 "configuracion"
               ]
             },
-            "description": "Reemplaza umbral y destinatarios. Rige desde el proximo dato de carga, sin reiniciar. Aca reenvia los valores que devolvio el request 25, asi la coleccion no deja la configuracion cambiada: editar el body para probar otros valores.",
+            "description": "Reemplaza umbral y destinatarios (solo admin); rige desde el proximo dato. Reenvia los valores del request 25 para no dejar la configuracion cambiada.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"temperaturaUmbral\": {{umbralActual}},\n  \"destinatarios\": {{destinatariosActual}}\n}",
